@@ -79,7 +79,7 @@ export class Account {
             .entries( this.#config['accounts']['personas'] )
             .forEach( a => {
                 const [ key, value ] = a
-                console.log( '>>>', value['pattern'])
+// console.log( '>>>', value['pattern'] )
                 challenge['logic']['and'][ 0 ]['value'] = value['pattern']
                 patternFinder.setPreset( {
                     'presetKey': key,
