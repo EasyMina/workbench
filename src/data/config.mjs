@@ -15,7 +15,8 @@ export const config = {
             'workdir': {
                 'name': 'workdir',
                 'subfolders': {
-                    'name': 'project__name',
+                    'name': null,
+                    'default': 'hello-world',
                     'subfolders': {
                         'backend': {
                             'name': 'backend'
@@ -46,7 +47,7 @@ export const config = {
                 ]
             }
         },
-        'values': {
+        'values': {        
             'stringsAndDash': {
                 'regex': /^[a-zA-Z-]+$/,
                 'description': "Allowed are only strings and dashes for the 'stringsAndDash' validation."
@@ -58,6 +59,35 @@ export const config = {
             'minaPrivateKey': {
                 'regex': /^EK[a-zA-Z0-9]+/,
                 'description': "Allowed is a valid Mina private key format (starting with 'EK' followed by alphanumeric characters) for the 'minaPrivateKey' validation."
+            }
+        }
+    },
+    'accounts': {
+        'personas': {
+            'alice': {
+                'pattern': 'a'
+            },
+            'bob': {
+                'pattern': 'b'
+            },
+            'chris': {
+                'pattern': 'c'
+            }
+        },
+        'address': {
+            'logic': {
+                'and': [
+                    {
+                        'value': '0',
+                        'description': 'Search for a given character.',
+                        'method': 'inSuccession',
+                        'option':  'endsWith', // 'inBetween', // 'endsWith',
+                        'expect': {
+                            'logic': '>=',
+                            'value': 2
+                        }
+                    }
+                ]
             }
         }
     }

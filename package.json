@@ -16,6 +16,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "figlet": "^1.7.0"
+    "figlet": "^1.7.0",
+    "o1js": "^0.14.2",
+    "patternfinder": "^0.0.1"
   }
 }
