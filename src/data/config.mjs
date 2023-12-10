@@ -63,6 +63,7 @@ export const config = {
         }
     },
     'accounts': {
+        'maxTries': 10000,
         'personas': {
             'alice': {
                 'pattern': 'a'
@@ -88,6 +89,29 @@ export const config = {
                         }
                     }
                 ]
+            }
+        }
+    },
+    'networks': {
+        'berkeley': {
+            'faucet': {
+                'url': 'https://faucet.minaprotocol.com/api/v1/faucet',
+                'id': 'berkeley-qanet',
+                'explorer': 'https://berkeley.minaexplorer.com/transaction/{paymentID}'
+            }
+        },
+        'testworld': {
+            'faucet': {
+                'url': 'https://faucet.minaprotocol.com/api/v1/faucet',
+                'id': 'itn-qanet',
+                'explorer': 'https://minascan.io/testworld/tx/{paymentID}'
+            }
+        },
+        'devnet': {
+            'faucet': {
+                'url': 'https://faucet.minaprotocol.com/api/v1/faucet',
+                'id': 'devnet',
+                'explorer': 'https://devnet.minaexplorer.com/transaction/{paymentID}'
             }
         }
     }

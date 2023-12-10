@@ -35,6 +35,11 @@ export class Environment {
     }
 
 
+    createAccount() {
+        
+    }
+
+
     getState() {
         const state = [ 'credentials', 'workdir' ]
             .reduce( ( acc, key, index ) => {
