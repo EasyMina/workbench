@@ -1,4 +1,6 @@
 import fs from 'fs'
+import { keyPathToValue } from './helpers/mixed.mjs'
+
 
 
 export class Environment {
@@ -8,6 +10,14 @@ export class Environment {
 
     constructor( config ) {
         this.#config = config
+    }
+
+
+    init( { accountGroup, projectName } ) {
+        this.#state = {
+            accountGroup,
+            projectName
+        }
     }
 
 
@@ -35,46 +45,90 @@ export class Environment {
     }
 
 
-    createAccount() {
+    getState() {
+        const state = {
+            'credentials': this.getStateCredentials(),
+            'workDir': this.getStateWorkDir()
+        }
         
+        console.log( state )
     }
 
 
-    getState() {
-        const state = [ 'credentials', 'workdir' ]
-            .reduce( ( acc, key, index ) => {
-                const folder = this.#config['validate']['folders'][ key ]['name']
-                acc[ key ] = fs.existsSync( folder ) ? true : false
+    getStateCredentials() {
+        const state = {
+            'exists': null
+        }
+
+        const folder = this.#config['validate']['folders']['credentials']['name']
+        state['exists'] = fs.existsSync( folder )
+
+        const credentials = this.#config['validate']['folders']['credentials']
+
+        state['folders'] = Object
+            .entries( credentials['subfolders'] )
+            .reduce( ( acc, a, index ) => {
+                const [ subfolder, values ] = a
+                const struct = {
+                    'exists': null,
+                    'files': []
+                }
+
+                let path = ''
+                path += folder + '/'
+                path += subfolder
+                struct['exists'] = fs.existsSync( path )
+                acc[ subfolder ] = struct
+
+                const files = fs.readdirSync( path )
+                    .map( file => {
+                        const filePath = `${path}/${file}`
+                        if( !fs.statSync( filePath ).isDirectory() ) {
+                            console.log( 'file', filePath )
+                            if( filePath.endsWith( '.json' ) ) {
+                                console.log( 'here', filePath ) 
+                                this.#getAccount( { filePath } )
+                            }
+                        }
+                    } )
+
                 return acc
             }, {} )
 
-        state['subgroups'] = []
-        const subGroups = this.#getSubGroups()
-        const _default = subGroups
-            .some( a => a['default'] )
+process.exit( 1 )
+        // console.log( '>>>', state )
+        return state
+    }
 
-        if( !_default ) {
-            const name = this.#config['validate']['folders']['workdir']['subfolders']['default']
-            subGroups.push( name )
+
+    getStateWorkDir() {
+        const state = {
+            'exists': null,
+            'projects': {}
         }
 
-        if( state['workdir'] ) {
-            state['subgroups'] = subGroups
-                .map( ( folder, index ) => {
+        const folder = this.#config['validate']['folders']['workdir']['name']
+        state['exists'] = fs.existsSync( folder )
+
+        if( state['exists'] ) {
+            state['projects'] = this.#getSubGroups()
+                .reduce( ( abb, a, index ) => {
+
                     const struct = {
                         'default': null,
-                        'subfolders': [],
+                        'folders': [],
                         'valid': null
                     }
 
-                    struct['default'] = ( struct['default'] === this.#config['validate']['folders']['workdir']['subfolders']['default'] )
-                    struct['subfolders'] = Object
+                    struct['default'] = a['default']
+                    // struct['default'] = a['default']
+                    struct['folders'] = Object
                         .entries( this.#config['validate']['folders']['workdir']['subfolders']['subfolders'] )
                         .reduce( ( acc, b, rindex ) => {
                             const [ key, value ] = b
                             const path = [
                                 this.#config['validate']['folders']['workdir']['name'],
-                                folder,
+                                a['folder'],
                                 value['name']
                             ]
                                 .join( '/' )
@@ -85,17 +139,43 @@ export class Environment {
                             return acc
                         }, {} )
 
+                    abb[ a['folder'] ] = struct
+
+/*
                     struct['complete'] = Object
                         .values( struct['subfolders'] )
                         .every( ( a ) => a['exists'] )
-                    
-                    return struct 
-                } )
+*/
+                   //
+                    return abb
+                }, {} )
         }
-
+ 
         return state
     }
 
+
+    #getAccount( { filePath } ) {
+        const state = {}
+        try {
+            const txt = fs.readFileSync( filePath, 'utf-8' )
+            const json = JSON.parse( txt )
+
+            const validations = this.#config['validate']['files']['account']['keys']
+                .map( a => {
+                    const { key, validation, type } = a 
+                    keyPathToValue( { 'data': '' })
+
+                } )
+
+            console.log( 'v', validations )
+
+        } catch( e ) {
+            console.log( 'e', e )
+        }
+
+        return true
+    }
 
     #getSubGroups() {
         const workdir = this.#config['validate']['folders']['workdir']
@@ -104,6 +184,14 @@ export class Environment {
                 const path = [ workdir['name'], item ]
                     .join( '/' )
                 return fs.statSync( path ).isDirectory()
+            } )
+            .map( a => {
+                const struct = {
+                    'folder': a,
+                    'default': a === workdir['subfolders']['default']
+                }
+
+                return struct
             } )
 
         return subgroups

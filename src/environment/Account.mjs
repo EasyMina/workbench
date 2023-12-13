@@ -17,7 +17,47 @@ export class Account {
     }
 
 
-    createAddress( { name, pattern=true } ) {
+    async createDeployer( { name, pattern=true, networkNames=[ 'berkeley' ] } ) {
+        const deployer = this.#createAddress( { name, pattern } )
+
+        let faucets = await Promise
+            .all(
+                networkNames
+                    .map( async( networkName ) => {
+                        const faucet = await this.#sendFaucet( { 
+                            'publicKey': deployer['publicKey'],
+                            networkName
+                        } )
+                        return faucet
+                    } )
+            )
+
+        faucets = faucets
+            .reduce( ( acc, a, index ) => {
+                acc[ a['networkName'] ] = a['status']
+                return acc
+            }, {} )
+        
+        const struct = {
+            'header': {
+                name,
+            },
+            'body': {
+                'account': {
+                    'publicKey': deployer['publicKey'],
+                    'privateKey': deployer['privateKey']
+                },
+                'faucets': {
+                    faucets
+                }
+            }
+        }
+
+        return struct
+    }
+
+
+    #createAddress( { name, pattern=true } ) {
         let user
 
         if( !pattern ) {
@@ -38,12 +78,55 @@ export class Account {
                 index++
                 if( index > this.#config['accounts']['maxTries'] ) {
                     loop = false
-                    console.log( 'not found.' )
+                    // console.log( 'not found.' )
                 }
             }
         }
 
         return user
+    }
+
+
+    async #sendFaucet( { publicKey, networkName='berkeley' } ) {
+        const url = this.#config['networks'][ networkName ]['faucet']['url']
+        const network = this.#config['networks'][ networkName ]['faucet']['id']
+        const address = publicKey
+
+        let result = {
+            networkName,
+            'status': {
+                'success': null,
+                'paymentID': null,
+                'explorer': null
+            }
+        }
+
+        try {
+            const body = { network, publicKey }
+            const response = await axios.post(
+                url, 
+                { network, address }, 
+                {
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Accept': '*/*'
+                    },
+                    'maxBodyLength': Infinity
+                }
+            )
+    
+            // console.log( response.data )
+            result['status']['paymentID'] = response['data']['message']['paymentID']
+            result['status']['success'] = true
+            result['status']['explorer'] = this.#config['networks'][ networkName ]['explorer']['transaction']
+                .replace( '{{txHash}}', `${result['status']['paymentID']}` )
+
+        } catch( e ) {
+            // console.log( 'e', e )
+            result['status']['success'] = false
+        }
+
+        return result
     }
 
 
@@ -59,7 +142,6 @@ export class Account {
 
         return { privateKey, publicKey }
     }
-
 
 
     #addPatternFinder() {
@@ -81,44 +163,5 @@ export class Account {
             } )
 
         return patternFinder
-    }
-
-
-    async sendFaucet( { publicKey, networkName='berkeley' } ) {
-        const url = this.#config['networks'][ networkName ]['faucet']['url']
-        const network = this.#config['networks'][ networkName ]['faucet']['id']
-        const address = publicKey
-
-        let result = {
-            'status': {
-                'success': null,
-                'paymentID': null 
-            }
-        }
-
-        try {
-            const body = { network, publicKey }
-            const response = await axios.post(
-                url, 
-                { network, address }, 
-                {
-                    'headers': {
-                        'Content-Type': 'application/json',
-                        'Accept': '*/*'
-                    },
-                    'maxBodyLength': Infinity
-                }
-            )
-    
-            // console.log( response.data )
-            result['status']['paymentID'] = response['data']['message']['paymentID']
-            result['status']['success'] = true
-
-        } catch( e ) {
-            // console.log( 'e', e )
-            result['status']['success'] = false
-        }
-
-        return result
     }
 }

@@ -66,6 +66,9 @@ export class Encryption {
 
 
     encrypt( { text } ) {
+        const [ messages, comments ] = this.#validateSecret( { 'secret': this.#secret['string'] } )
+        printMessages( { messages, comments } )
+
         const iv = crypto.randomBytes( 16 )
 
         const cipher = crypto.createCipheriv( 
@@ -92,6 +95,9 @@ export class Encryption {
 
 
     decrypt( { hash } ) {
+        const [ messages, comments ] = this.#validateSecret( { 'secret': this.#secret['string'] } )
+        printMessages( { messages, comments } )
+
         const decipher = crypto.createDecipheriv(
             this.#config['algorithm'], 
             this.#secret['digest'],
