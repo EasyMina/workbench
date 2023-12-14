@@ -27,35 +27,43 @@ export const config = {
                     }
                 }
             }
-        },
+        }, 
         'files': {
             'account': {
                 'type': 'json',
                 'keys': [
                     {
+                        'name': 'name',
                         'key': 'header__name',
-                        'validation': 'validation__values__string',
+                        'validation': 'validate__values__string',
                         'type': 'string'
                     },
                     {
+                        'name': 'groups',
                         'key': 'header__groups',
-                        'validation': 'validation__values__string',
+                        'validation': 'validate__values__string',
                         'type': 'array'
                     },
                     {
-                        'key': 'body__address__publicKey',
-                        'validation': 'validation__values__minaPublicKey',
+                        'name': 'publicKey',
+                        'key': 'body__account__publicKey',
+                        'validation': 'validate__values__minaPublicKey',
                         'type': 'string'
                     },
                     {
-                        'key': 'body__address__privateKey',
-                        'validation': 'validation__values__minaPrivateKey',
+                        'name': 'privateKey',
+                        'key': 'body__account__privateKey',
+                        'validation': 'validate__values__minaPrivateKey',
                         'type': 'string'
                     }
                 ]
             }
         },
-        'values': {        
+        'values': {   
+            'string': {
+                'regex': /[a-zA-Z]+/,
+                'description': 'Only string are allowed.'
+            },
             'stringsAndDash': {
                 'regex': /^[a-zA-Z]+(-[a-zA-Z]+)*$/,
                 'description': "Only strings and hyphens are allowed, but hyphens should only appear in the middle."

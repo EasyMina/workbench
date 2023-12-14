@@ -1,7 +1,6 @@
 {
   "name": "2",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "directories": {
     "test": "tests"
@@ -18,7 +17,9 @@
   "dependencies": {
     "axios": "^1.6.2",
     "figlet": "^1.7.0",
+    "moment": "^2.29.4",
     "o1js": "^0.14.2",
     "patternfinder": "^0.0.1"
-  }
+  },
+  "description": ""
 }

@@ -1,6 +1,5 @@
 import fs from 'fs'
-import { keyPathToValue } from './helpers/mixed.mjs'
-
+import { keyPathToValue } from './../helpers/mixed.mjs'
 
 
 export class Environment {
@@ -8,8 +7,9 @@ export class Environment {
     #state
 
 
-    constructor( config ) {
-        this.#config = config
+    constructor( validate ) {
+        this.#config = validate
+        return true
     }
 
 
@@ -20,7 +20,7 @@ export class Environment {
         }
     }
 
-
+/*
     create() {
         const state = this.getState()
         const tmp = [ 'credentials', 'workdir' ]
@@ -43,19 +43,19 @@ export class Environment {
 
         return true
     }
+*/
 
-
-    getState() {
+    getState( { account } ) {
         const state = {
-            'credentials': this.getStateCredentials(),
+            'credentials': this.getStateCredentials( { account } ),
             'workDir': this.getStateWorkDir()
         }
         
-        console.log( state )
+        return state
     }
 
 
-    getStateCredentials() {
+    getStateCredentials( { account } ) {
         const state = {
             'exists': null
         }
@@ -71,7 +71,7 @@ export class Environment {
                 const [ subfolder, values ] = a
                 const struct = {
                     'exists': null,
-                    'files': []
+                    'groups': []
                 }
 
                 let path = ''
@@ -80,23 +80,43 @@ export class Environment {
                 struct['exists'] = fs.existsSync( path )
                 acc[ subfolder ] = struct
 
-                const files = fs.readdirSync( path )
-                    .map( file => {
+                struct['groups'] = fs.readdirSync( path )
+                    .reduce( ( abb, file, index ) => {
                         const filePath = `${path}/${file}`
                         if( !fs.statSync( filePath ).isDirectory() ) {
-                            console.log( 'file', filePath )
                             if( filePath.endsWith( '.json' ) ) {
-                                console.log( 'here', filePath ) 
-                                this.#getAccount( { filePath } )
+                                const validate = account
+                                    .validateDeployer( { filePath } )
+                                if( validate[ 0 ].length === 0 ) {
+                                    const tmp = fs.readFileSync( filePath, 'utf-8' )
+                                    const json = JSON.parse( tmp )
+
+                                    const struct = {
+                                        filePath, 
+                                        'name': json['header']['name'],
+                                        'groups': json['header']['groups']
+                                    }
+
+                                    abb.push( struct )
+                                }
                             }
                         }
-                    } )
+                        return abb
+                    }, [] )
+                    .reduce( ( abb, item, index ) => {
+                        item['groups']
+                            .forEach( group => {
+                                abb[ group ] = {
+                                    'name': item['name'],
+                                    'filePath': item['filePath']
+                                }
+                            } )
+                        return abb
+                    }, {} )
 
                 return acc
             }, {} )
 
-process.exit( 1 )
-        // console.log( '>>>', state )
         return state
     }
 
@@ -141,12 +161,6 @@ process.exit( 1 )
 
                     abb[ a['folder'] ] = struct
 
-/*
-                    struct['complete'] = Object
-                        .values( struct['subfolders'] )
-                        .every( ( a ) => a['exists'] )
-*/
-                   //
                     return abb
                 }, {} )
         }
@@ -154,28 +168,6 @@ process.exit( 1 )
         return state
     }
 
-
-    #getAccount( { filePath } ) {
-        const state = {}
-        try {
-            const txt = fs.readFileSync( filePath, 'utf-8' )
-            const json = JSON.parse( txt )
-
-            const validations = this.#config['validate']['files']['account']['keys']
-                .map( a => {
-                    const { key, validation, type } = a 
-                    keyPathToValue( { 'data': '' })
-
-                } )
-
-            console.log( 'v', validations )
-
-        } catch( e ) {
-            console.log( 'e', e )
-        }
-
-        return true
-    }
 
     #getSubGroups() {
         const workdir = this.#config['validate']['folders']['workdir']

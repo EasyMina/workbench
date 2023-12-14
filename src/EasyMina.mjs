@@ -4,6 +4,9 @@ import { printMessages } from './helpers/mixed.mjs'
 import { Account } from './environment/Account.mjs'
 import { Encryption } from './environment/Encryption.mjs'
 
+import moment from 'moment'
+import fs from 'fs'
+
 
 export class EasyMina {
     #config
@@ -16,62 +19,46 @@ export class EasyMina {
 
     async init( { accountGroup='a', projectName='hello-world' } ) {
         const [ messages, comments ] = this.#validateInit( { accountGroup, projectName } )
-
-        const environment = new Environment( { 
-            'validate': this.#config['validate']
-        } )
-
-        environment.init( { accountGroup, projectName } )
-
-        environment.getState()
-
-        
         printMessages( { messages, comments } )
-        process.exit( 1 )
-
-
 
         const account = new Account( {
             'accounts': this.#config['accounts'],
-            'networks': this.#config['networks']
-        } )
+            'networks': this.#config['networks'],
+            'validate': this.#config['validate']
+        } ) 
 
-        const encryption = new Encryption()
+        // const [ m, c ] = account.validateDeployer( { 'filePath': './.mina/accounts/1702507698.json' } )
+        // printMessages( { 'messages': m, 'comments': c } )
 
 
+        const environment = new Environment( { 
+            'validate': this.#config['validate']
+        } ) 
 
-        const secret = encryption.createSecret()
-        console.log( 'secret', secret )
+        environment.init( { accountGroup, projectName } )
+
+        const state = environment.getState( { account } )
+        console.log( 's', JSON.stringify( state, null, 4 ) )
+
+process.exit( 1 )
+        // const secret = encryption.createSecret()
+        // console.log( 'secret', secret )
         // const secret = process.env.EASYMINA
-        encryption.setSecret( { secret } )
 
-        const en = encryption.encrypt( { text: 'tehjhjkhjhjkhljklhhljklhjlhjlhjkst' } )
-        const de = encryption.decrypt( { hash: en } )
 
-        const result = await account.createDeployer( { 
-            'name': 'alice', 
-            pattern: true,
-            networkNames: [ 'berkeley', 'testworld2', 'devnet' ]
-        } )
+        const names = [
+            [ 'alice', 'a' ],
+            [ 'bob', 'a' ]
+        ]
 
-        result['header']['explorer'] = Object
-            .entries( this.#config['networks'] )
-            .reduce( ( acc, a, index ) => {
-                const [ key, value ] = a
-                acc[ key ] = value['explorer']['wallet']
-                    .replace( '{{publicKey}}', result['body']['account']['publicKey'] )
-                return acc
-            }, {} )
+       await this.#createAccounts( { names } )
 
-        result['body'] = encryption.encrypt( { 
-            'text': JSON.stringify( result['body'] )
-        } )
+        // const en = encryption.encrypt( { text: 'tehjhjkhjhjkhljklhhljklhjlhjlhjkst' } )
+        // const de = encryption.decrypt( { hash: en } )
 
-        console.log( 'result', JSON.stringify( result, null, 4 ) )
 
-        result['body'] = JSON.parse( encryption.decrypt( { 'hash': result['body'] } ) ) 
- 
-        console.log( 'result', JSON.stringify( result, null, 4 ) )
+                
+        process.exit( 1 )
 
 /*
         environment.create()
@@ -93,11 +80,44 @@ export class EasyMina {
 
 
 
-        console.log( 'user', user  )
+
         // const [ messages, comments ] = environment.validate()
         // printMessages( { messages, comments } )
 
        return true
+    }
+
+
+    async #createAccounts( { names, account } ) {
+        for( let i = 0; i < names.length; i++ ) {
+            const [ name, groupName ] = names[ i ]
+            const deployer = await this.#createAccount( {
+                name,
+                groupName,
+                'pattern': true,
+                'networkNames': [ 'berkeley' ],
+                'secret': 'EApex4z3ZzkciZzn8f2mmz1ml7wlwyfZ28ejZv2oZu',
+                'encrypt': false,
+                account
+            } )
+        }
+
+        return true
+    }
+
+
+
+    async #createAccount( { name, groupName, pattern, networkNames, secret, encrypt, account } ) {
+        let deployer = await account
+            .createDeployer( { name, groupName, pattern, networkNames } )
+
+        const encryption = new Encryption()
+        encryption.setSecret( { secret } )
+        if( encrypt ) {
+            deployer = encryption.encryptDeployer( { deployer } )
+        }
+        
+        return deployer
     }
 
 
@@ -120,5 +140,4 @@ export class EasyMina {
 
         return [ messages, comments ]
     }
-
 }

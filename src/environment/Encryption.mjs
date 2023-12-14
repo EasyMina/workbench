@@ -78,7 +78,7 @@ export class Encryption {
         )
 
         const encrypted = Buffer.concat( [ 
-            cipher.update( text ), 
+            cipher.update( `${text}` ), 
             cipher.final() 
         ] )
 
@@ -110,6 +110,30 @@ export class Encryption {
         ] )
       
         return decrypted.toString()
+    }
+
+
+    encryptDeployer( { deployer } ) {
+        const [ messages, comments ] = this.#validateSecret( { 'secret': this.#secret['string'] } )
+        printMessages( { messages, comments } )
+
+        deployer['body'] = this.encrypt( { 
+            'text': JSON.stringify( deployer['body'] )
+        } )
+
+        return deployer
+    }
+
+
+    decryptDeployer( { deployer } ) {
+        const [ messages, comments ] = this.#validateSecret( { 'secret': this.#secret['string'] } )
+        printMessages( { messages, comments } )
+
+        deployer['body'] = JSON.parse( 
+            this.decrypt( { 'hash': deployer['body'] } ) 
+        ) 
+ 
+        return deployer
     }
 
 /*

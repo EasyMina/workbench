@@ -1,7 +1,9 @@
+import { PatternFinder } from 'patternfinder'
+import { keyPathToValue } from './../helpers/mixed.mjs'
 
 import { PrivateKey } from 'o1js'
-import { PatternFinder } from 'patternfinder'
 import axios from 'axios'
+import fs from 'fs'
 
 
 export class Account {
@@ -9,15 +11,15 @@ export class Account {
     #patternFinder
 
 
-    constructor( { accounts, networks } ) {
-        this.#config = { accounts, networks }
+    constructor( { accounts, networks, validate } ) {
+        this.#config = { accounts, networks, validate }
         this.#patternFinder = this.#addPatternFinder()
 
         return true
     }
 
 
-    async createDeployer( { name, pattern=true, networkNames=[ 'berkeley' ] } ) {
+    async createDeployer( { name, groupName, pattern=true, networkNames=[ 'berkeley' ] } ) {
         const deployer = this.#createAddress( { name, pattern } )
 
         let faucets = await Promise
@@ -41,6 +43,8 @@ export class Account {
         const struct = {
             'header': {
                 name,
+                'groups': [ groupName ], 
+                'explorer': null
             },
             'body': {
                 'account': {
@@ -52,6 +56,15 @@ export class Account {
                 }
             }
         }
+
+        struct['header']['explorer'] = Object
+            .entries( this.#config['networks'] )
+            .reduce( ( acc, a, index ) => {
+                const [ key, value ] = a
+                acc[ key ] = value['explorer']['wallet']
+                    .replace( '{{publicKey}}', struct['body']['account']['publicKey'] )
+                return acc
+            }, {} )
 
         return struct
     }
@@ -145,7 +158,7 @@ export class Account {
 
 
     #addPatternFinder() {
-        const patternFinder = new PatternFinder()
+        const patternFinder = new PatternFinder( false )
 
         Object
             .entries( this.#config['accounts']['personas'] )
@@ -154,7 +167,7 @@ export class Account {
                 const challenge = JSON.parse( 
                     JSON.stringify( this.#config['accounts']['address'] )
                 )
-// console.log( '>>>', value['pattern'] )
+
                 challenge['logic']['and'][ 0 ]['value'] = value['pattern']
                 patternFinder.setPreset( {
                     'presetKey': key,
@@ -163,5 +176,71 @@ export class Account {
             } )
 
         return patternFinder
+    }
+
+
+    validateDeployer( { filePath } ) {
+        const messages = []
+        const comments = []
+
+        let msg = ''
+        let json
+        try {
+            msg = `FilePath '${filePath}' could not load file`
+            const txt = fs.readFileSync( filePath, 'utf-8' )
+            msg = `FilePath '${filePath}' is not parsable.`
+            json = JSON.parse( txt )
+        } catch( e ) {
+            console.log( e )
+            messages.push( msg )
+        }
+
+        if( messages.length === 0 ) {
+            const tests = this.#config['validate']['files']['account']['keys']
+                .map( a => {
+                    const { name, key, validation, type } = a 
+                    const value = keyPathToValue( { 'data': json, 'keyPath': key } )
+                    const regex = keyPathToValue( { 'data': this.#config, 'keyPath': validation } )
+
+                    let test = null
+                    switch( type ) {
+                        case 'string':
+                            if( typeof value === undefined ) {
+                                test = false
+                                messages.push(`FilePath '${filePath}', key '${name}' is 'undefined'.` )
+                            } else if( typeof value !== 'string' ) {
+                                test = false
+                                messages.push( `FilePath '${filePath}', key '${name}' is type of 'string'.` )
+                            } else if( !regex['regex'].test( `${value}` ) ) {
+                                test = false
+                                messages.push( `FilePath '${filePath}', key '${name}' is not a valid pattern. ${regex['description']}` )
+                            } else {
+                                test = true
+                            }
+                            break
+                        case 'array':
+                            if( !Array.isArray( value ) ) {
+                                messages.push( `FilePath '${filePath}', key '${name}' is type of 'array'.` )
+                                test = false
+                            } else {
+                                test = value
+                                    .map( v =>  regex['regex'].test( v ) )
+                                    .every( a => a )
+
+                                if( !test ) {
+                                    messages.push( `FilePath '${filePath}', key '${name}' is not a valid pattern. ${regex['description']}` )
+                                }
+                            } 
+                            break
+                        default:
+                            console.log( `Unknown Type: ${type}.` )
+                            break
+                    }
+
+                    return test
+                } )
+        }
+
+        return [ messages, comments ]
     }
 }
