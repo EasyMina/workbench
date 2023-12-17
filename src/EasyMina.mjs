@@ -1,5 +1,6 @@
 import { config } from './data/config.mjs'
-import { Environment } from './environment/Environment.mjs'
+import { Environment } from './environment/Environment2.mjs'
+
 import { printMessages } from './helpers/mixed.mjs'
 import { Account } from './environment/Account.mjs'
 import { Encryption } from './environment/Encryption.mjs'
@@ -10,87 +11,152 @@ import fs from 'fs'
 
 export class EasyMina {
     #config
+    #state
+    #environment
+    #account
+    #encryption
 
 
     constructor() {
         this.#config = config
+
+        return 
     }
 
 
-    async init( { accountGroup='a', projectName='hello-world' } ) {
-        const [ messages, comments ] = this.#validateInit( { accountGroup, projectName } )
+    init() {
+        this.#account = this.#addAccount()
+        this.#environment = this.#addEnvironment()
+        this.#encryption = new Encryption()
+
+        const secret = this.#environment.getSecret( {
+            'filePath': null,
+            'encryption': this.#encryption
+        } )
+    
+/*
+        this.#environment.createSecretFile( { 
+            'encryption': this.#encryption 
+        } )
+*/
+
+        this.#state = {
+            'accountGroup': null,
+            'projectName': null,
+            'names': null
+        }
+
+        return this
+    }
+
+
+    setAccountGroup( accountGroup ) {
+        const [ messages, comments ] = this.#validateState( { accountGroup } )
         printMessages( { messages, comments } )
 
+        this.#state['accountGroup'] = accountGroup
+        return this
+    }
+
+
+    setProjectName( projectName ) {
+        const [ messages, comments ] = this.#validateState( { projectName } )
+        printMessages( { messages, comments } )
+
+        this.#state['projectName'] = projectName
+        return this
+    }
+
+
+    async newPersonas( { names=[ 'this', 'that' ] } ) {
+        const [ messages, comments ] = this.#validateState( { names } )
+        printMessages( { messages, comments } )
+
+        const { accountGroup, projectName } = this.#state
+        this.#environment.init( { accountGroup, projectName } )
+        this.#environment.updateFolderStructure()
+
+        const nameCmds = names
+            .map( name => [ name, accountGroup ] )
+        await this.#createMissingAccounts( { nameCmds, accountGroup } )
+
+        return true
+    }
+
+
+    #detectSecret( { filePath=null } ) {
+        let messages = []
+        let comments = []
+
+        const key = this.#config['secret']['key']
+
+        if( filePath !== null ) {
+
+        }
+
+
+        if( Object.hasOwn( process.env, key ) ) {
+            if( process.env[ key ] === undefined || process.env[ key ] === null ) {
+                messages.push( `Environment variable '${key}' is not set as environment variable.` )
+            } else if( typeof process.env[ key ] != 'string' ) {
+                messages.push( `Environment variable '${key}' is not type of string.` )
+            } else {
+                const secret = process.env[ key ]
+                const [ m, c ] = this.#encryption.validateSecret( { secret } ) 
+                messages = [ ...messages, ...m ]
+                comments = [ ...comments, ...c ]
+            }
+        } else {
+            messages.push( `Environment variable '${key}' is not set.` )
+        }
+
+        console.log( 'Mesages', messages )
+        process.exit( 1 )
+        // console.log( 'test', test )
+        return true
+    }
+
+
+    #addAccount() {
         const account = new Account( {
             'accounts': this.#config['accounts'],
             'networks': this.#config['networks'],
             'validate': this.#config['validate']
         } ) 
 
-        // const [ m, c ] = account.validateDeployer( { 'filePath': './.mina/accounts/1702507698.json' } )
-        // printMessages( { 'messages': m, 'comments': c } )
-
-
-        const environment = new Environment( { 
-            'validate': this.#config['validate']
-        } ) 
-
-        environment.init( { accountGroup, projectName } )
-
-        const state = environment.getState( { account } )
-        console.log( 's', JSON.stringify( state, null, 4 ) )
-
-process.exit( 1 )
-        // const secret = encryption.createSecret()
-        // console.log( 'secret', secret )
-        // const secret = process.env.EASYMINA
-
-
-        const names = [
-            [ 'alice', 'a' ],
-            [ 'bob', 'a' ]
-        ]
-
-       await this.#createAccounts( { names } )
-
-        // const en = encryption.encrypt( { text: 'tehjhjkhjhjkhljklhhljklhjlhjlhjkst' } )
-        // const de = encryption.decrypt( { hash: en } )
-
-
-                
-        process.exit( 1 )
-
-/*
-        environment.create()
-*/
-/*
-        const deployer = account.createAddress( { 
-            'name': 'alice',
-            'pattern': false
-        } )
-// console.log( deployer )
-        const response = await account.sendFaucet( { publicKey: deployer['publicKey'] } )
-        if( response['success'] ) { 
-
-        }
-*/
-
-
-        process.exit( 1 )
-
-
-
-
-        // const [ messages, comments ] = environment.validate()
-        // printMessages( { messages, comments } )
-
-       return true
+        return account
     }
 
 
-    async #createAccounts( { names, account } ) {
-        for( let i = 0; i < names.length; i++ ) {
-            const [ name, groupName ] = names[ i ]
+    #addEnvironment() {
+        const environment = new Environment( { 
+            'validate': this.#config['validate'],
+            'secret': this.#config['secret']
+        } ) 
+
+        return environment
+    }
+
+
+    async #createMissingAccounts( { nameCmds } ) {
+        const availableDeyployers = this.#environment.getAccounts( { 'account': this.#account } )
+        const missingNames = nameCmds
+            .filter( a => {
+                const [ name, accountGroup ] = a
+                if( Object.hasOwn( availableDeyployers, accountGroup ) ) {
+                    if( Object.hasOwn( availableDeyployers[ accountGroup ], name ) ) {
+                        return false
+                    } else {
+                        return true
+                    }
+                } else {
+                    return true
+                }
+            } )
+
+        for( let i = 0; i < missingNames.length; i++ ) {
+            const [ name, groupName ] = missingNames[ i ]
+            console.log( 'Create', name )
             const deployer = await this.#createAccount( {
                 name,
                 groupName,
@@ -98,45 +164,75 @@ process.exit( 1 )
                 'networkNames': [ 'berkeley' ],
                 'secret': 'EApex4z3ZzkciZzn8f2mmz1ml7wlwyfZ28ejZv2oZu',
                 'encrypt': false,
-                account
+                'account': this.#account
             } )
+
+            let path = [
+                this.#config['validate']['folders']['credentials']['name'],
+                this.#config['validate']['folders']['credentials']['subfolders']['accounts']['name'],
+                `${name}--${moment().unix()}.json`
+            ]
+                .join( '/' )
+     
+            fs.writeFileSync( 
+                path, 
+                JSON.stringify( deployer, null, 4 ), 
+                'utf-8'
+            )
         }
 
         return true
     }
 
 
-
     async #createAccount( { name, groupName, pattern, networkNames, secret, encrypt, account } ) {
         let deployer = await account
             .createDeployer( { name, groupName, pattern, networkNames } )
 
-        const encryption = new Encryption()
-        encryption.setSecret( { secret } )
+        this.#encryption.setSecret( { secret } )
         if( encrypt ) {
-            deployer = encryption.encryptDeployer( { deployer } )
+            deployer = this.#encryption.encryptDeployer( { deployer } )
         }
         
         return deployer
     }
 
 
-    #validateInit( { accountGroup, projectName } ) {
+    #validateState( { accountGroup=null, projectName=null, names=null } ) {
         const messages = []
         const comments = []
  
-        const tmp = [
-            [ accountGroup, 'accountGroup', 'stringsAndDash' ],
-            [ projectName, 'projectName', 'stringsAndDash' ]
-        ]
+        const tests = []
+        accountGroup !== null ? tests.push( [ accountGroup, 'accountGroup', 'stringsAndDash' ] ) : ''
+        projectName !== null ? tests.push( [ projectName, 'projectName', 'stringsAndDash' ] ) : ''
+
+        const tmp = tests
             .forEach( a => {
                 const [ value, key, regexKey ] = a
                 if( typeof value !== 'string' ) {
                     messages.push( `Key '${key}' is not type of string` )
                 } else if( !this.#config['validate']['values'][ regexKey ]['regex'].test( value ) ) {
-                    messages.push( `Key '${key}' with the value '${value}' has not the expected pattern. ${this.#config['validate']['values'][ regexKey ]['description']}`)
+                    messages.push( `Key '${key}' with the value '${value}' has not the expected pattern. ${this.#config['validate']['values'][ regexKey ]['description']}` )
                 }
             } )
+
+        if( names === null ) {
+            
+        } else if( !Array.isArray( names ) ) {
+            messages.push( `Key 'names' is not type of array.` )
+        } else if( names.length === 0 ) {
+            messages.push( `Key 'names' is empty` )
+        } else {
+            names
+                .forEach( ( value, index ) => {
+                    if( typeof value !== 'string' ) {
+                        messages.push( `Key 'names' with the value '${value}' is not type of string.` )
+                    } else if( !this.#config['validate']['values']['stringsAndDash']['regex'].test( value ) ) {
+                        messages.push( `Key '${key}' with the value '${value}' has not the expected pattern. ${this.#config['validate']['values']['stringsAndDash']['description']}` )
+                    }
+
+                } )
+        }
 
         return [ messages, comments ]
     }

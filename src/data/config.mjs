@@ -1,4 +1,8 @@
 export const config = {
+    'secret': {
+        'fileName': '_.txt',
+        'key': 'EASYMINA'
+    },
     'validate': {
         'folders': {
             'credentials': {
@@ -7,8 +11,8 @@ export const config = {
                     'accounts': {
                         'name': 'accounts'
                     },
-                    'contract': {
-                        'name': 'contract'
+                    'contracts': {
+                        'name': 'contracts'
                     }
                 }
             },
@@ -21,7 +25,7 @@ export const config = {
                         'backend': {
                             'name': 'backend'
                         },
-                        'fontend': {
+                        'frontend': {
                             'name': 'frontend'
                         }
                     }
@@ -89,6 +93,9 @@ export const config = {
             },
             'chris': {
                 'pattern': 'c'
+            },
+            'easyMina': {
+                'pattern': 'z'
             }
         },
         'address': {

@@ -71,7 +71,13 @@ export class Account {
 
 
     #createAddress( { name, pattern=true } ) {
-        let user
+        let user,presetKey
+
+        if( this.#patternFinder.getPresetKeys().includes( name ) ) {
+            presetKey = name
+        } else {
+            presetKey = 'easyMina'
+        }
 
         if( !pattern ) {
             user = this.#getKeyPairs()
@@ -84,17 +90,18 @@ export class Account {
                 const result = this.#patternFinder
                     .getResult( {
                         'str': user['publicKey'],
-                        'presetKey': name,
+                        presetKey,
                         'flattenResult': true
                     } )
                 loop = !result
                 index++
                 if( index > this.#config['accounts']['maxTries'] ) {
                     loop = false
+                    user = this.#getKeyPairs()
                     // console.log( 'not found.' )
                 }
             }
-        }
+        } 
 
         return user
     }
@@ -158,21 +165,30 @@ export class Account {
 
 
     #addPatternFinder() {
+        function setPreset( { key, value, config, patternFinder } ) {
+            const challenge = JSON.parse( 
+                JSON.stringify( config['accounts']['address'] )
+            )
+
+            challenge['logic']['and'][ 0 ]['value'] = value
+            patternFinder.setPreset( {
+                'presetKey': key,
+                'challenge': challenge
+            } ) 
+        }
+
         const patternFinder = new PatternFinder( false )
 
         Object
             .entries( this.#config['accounts']['personas'] )
-            .forEach( a => {
+            .forEach( ( a, index, all ) => {
                 const [ key, value ] = a
-                const challenge = JSON.parse( 
-                    JSON.stringify( this.#config['accounts']['address'] )
-                )
-
-                challenge['logic']['and'][ 0 ]['value'] = value['pattern']
-                patternFinder.setPreset( {
-                    'presetKey': key,
-                    'challenge': challenge
-                } ) 
+                setPreset( { 
+                    key, 
+                    'value': value['pattern'], 
+                    'config': this.#config, 
+                    patternFinder 
+                } )
             } )
 
         return patternFinder

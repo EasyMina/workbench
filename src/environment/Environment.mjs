@@ -47,15 +47,52 @@ export class Environment {
 
     getState( { account } ) {
         const state = {
-            'credentials': this.getStateCredentials( { account } ),
-            'workDir': this.getStateWorkDir()
+            'credentials': this.#getStateCredentials( { account } ),
+            'workDir': this.#getStateWorkDir()
         }
         
         return state
     }
 
 
-    getStateCredentials( { account } ) {
+    updateCredentials( { state } ) {
+        const tmp = [
+            [ 
+                'credentials__exists',  
+                [ 'validate__folders__credentials__name' ]
+            ],
+            [ 
+                'credentials__folders__account__exists', 
+                [ 
+                    'validate__folders__credentials__name',
+                    'validate__folders__credentials__subfolders__accounts__name' 
+                ]
+            ],
+            [ 
+                'credentials__folders__contract__exists', 
+                [
+                    'validate__folders__credentials__name',
+                    'validate__folders__credentials__subfolders__contracts__name' 
+                ]
+                
+            ]
+        ]
+            .forEach( cmd => {
+                const exists = keyPathToValue( { 'data': state, 'keyPath': cmd[ 0 ] } )
+                if( !exists ) {
+                    const path = cmd[ 1 ]
+                        .map( keyPath => keyPathToValue( { 'data': this.#config, keyPath } ) )
+                        .join( '/' )
+                    fs.mkdir( path )
+                }
+            } )
+
+        return true
+    }
+
+
+
+    #getStateCredentials( { account } ) {
         const state = {
             'exists': null
         }
@@ -79,7 +116,7 @@ export class Environment {
                 path += subfolder
                 struct['exists'] = fs.existsSync( path )
                 acc[ subfolder ] = struct
-
+console.log( 'struct', struct )
                 struct['groups'] = fs.readdirSync( path )
                     .reduce( ( abb, file, index ) => {
                         const filePath = `${path}/${file}`
@@ -121,7 +158,7 @@ export class Environment {
     }
 
 
-    getStateWorkDir() {
+    #getStateWorkDir() {
         const state = {
             'exists': null,
             'projects': {}

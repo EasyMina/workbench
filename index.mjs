@@ -1,8 +1,14 @@
 import { EasyMina } from './src/EasyMina.mjs'
 
 const easyMina = new EasyMina()
-await easyMina.init( {
-    // 'accountGroup': 'hello-world23',
-    // 'projectGroup': 'hello-world---'
+easyMina
+    .init()
+    .setAccountGroup( 'group-a' )
+    .setProjectName( 'ABC-Project' ) 
+
+
+await easyMina.newPersonas( { 
+    names: [ 'aaa', 'bbb' ], 
+    groupName: 'testing' 
 } )
 

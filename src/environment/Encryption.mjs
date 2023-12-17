@@ -23,7 +23,7 @@ export class Encryption {
     }
 
 
-    createSecret() {
+    createSecretValue() {
         let str = null
         let tries = 0
         let loop = true
@@ -39,7 +39,7 @@ export class Encryption {
                         .charAt( randomIndex )
                     return acc
                 }, this.#config['secret']['prefix'] )
-            const [ m, c ] = this.#validateSecret( { 'secret': str } )
+            const [ m, c ] = this.validateSecret( { 'secret': str } )
             m.length === 0 ? loop = false : loop = true
             tries ++
         }
@@ -49,7 +49,7 @@ export class Encryption {
     
 
     setSecret( { secret } ) {
-        const [ messages, comments ] = this.#validateSecret( { secret } )
+        const [ messages, comments ] = this.validateSecret( { secret } )
         printMessages( { messages, comments } )
 
         this.#secret = {
@@ -66,7 +66,7 @@ export class Encryption {
 
 
     encrypt( { text } ) {
-        const [ messages, comments ] = this.#validateSecret( { 'secret': this.#secret['string'] } )
+        const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
         printMessages( { messages, comments } )
 
         const iv = crypto.randomBytes( 16 )
@@ -95,7 +95,7 @@ export class Encryption {
 
 
     decrypt( { hash } ) {
-        const [ messages, comments ] = this.#validateSecret( { 'secret': this.#secret['string'] } )
+        const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
         printMessages( { messages, comments } )
 
         const decipher = crypto.createDecipheriv(
@@ -114,7 +114,7 @@ export class Encryption {
 
 
     encryptDeployer( { deployer } ) {
-        const [ messages, comments ] = this.#validateSecret( { 'secret': this.#secret['string'] } )
+        const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
         printMessages( { messages, comments } )
 
         deployer['body'] = this.encrypt( { 
@@ -126,7 +126,7 @@ export class Encryption {
 
 
     decryptDeployer( { deployer } ) {
-        const [ messages, comments ] = this.#validateSecret( { 'secret': this.#secret['string'] } )
+        const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
         printMessages( { messages, comments } )
 
         deployer['body'] = JSON.parse( 
@@ -158,7 +158,7 @@ export class Encryption {
     }
 */
 
-    #validateSecret( { secret } ) {
+    validateSecret( { secret } ) {
         const messages = []
         const comments = []
 
