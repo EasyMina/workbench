@@ -25,26 +25,15 @@ export class EasyMina {
 
 
     init() {
+        const networkNames = [ 'berkeley' ]
+        const encryption = false
+
         this.#account = this.#addAccount()
         this.#environment = this.#addEnvironment()
         this.#encryption = new Encryption()
+        this.#state = this.#addState( { networkNames, encryption } )
 
-        const secret = this.#environment.getSecret( {
-            'filePath': null,
-            'encryption': this.#encryption
-        } )
-    
-/*
-        this.#environment.createSecretFile( { 
-            'encryption': this.#encryption 
-        } )
-*/
-
-        this.#state = {
-            'accountGroup': null,
-            'projectName': null,
-            'names': null
-        }
+        this.#encryption.setSecret( { 'secret': this.#state['secret'] } )
 
         return this
     }
@@ -83,7 +72,7 @@ export class EasyMina {
         return true
     }
 
-
+/*
     #detectSecret( { filePath=null } ) {
         let messages = []
         let comments = []
@@ -115,6 +104,31 @@ export class EasyMina {
         // console.log( 'test', test )
         return true
     }
+*/
+
+    #addState( { encryption, networkNames } ) {
+        const secret = this.#environment.getSecret( {
+            'filePath': null,
+            'encryption': this.#encryption
+        } )
+    
+/*
+        this.#environment.createSecretFile( { 
+            'encryption': this.#encryption 
+        } )
+*/
+
+        const state = {
+            'accountGroup': null,
+            'projectName': null,
+            'names': null,
+            secret,
+            networkNames,
+            encryption
+        }
+
+        return state
+    }
 
 
     #addAccount() {
@@ -139,7 +153,12 @@ export class EasyMina {
 
 
     async #createMissingAccounts( { nameCmds } ) {
-        const availableDeyployers = this.#environment.getAccounts( { 'account': this.#account } )
+        const availableDeyployers = this.#environment.getAccounts( { 
+            'account': this.#account, 
+            'encrypt': this.#encryption 
+        } )
+
+        console.log( availableDeyployers )
         const missingNames = nameCmds
             .filter( a => {
                 const [ name, accountGroup ] = a
@@ -161,9 +180,9 @@ export class EasyMina {
                 name,
                 groupName,
                 'pattern': true,
-                'networkNames': [ 'berkeley' ],
-                'secret': 'EApex4z3ZzkciZzn8f2mmz1ml7wlwyfZ28ejZv2oZu',
-                'encrypt': false,
+                'networkNames': this.#state['networkNames'],
+                'secret': this.#state['secret'],
+                'encrypt': this.#state['encryption'],
                 'account': this.#account
             } )
 
@@ -187,9 +206,8 @@ export class EasyMina {
 
     async #createAccount( { name, groupName, pattern, networkNames, secret, encrypt, account } ) {
         let deployer = await account
-            .createDeployer( { name, groupName, pattern, networkNames } )
+            .createDeployer( { name, groupName, pattern, networkNames, encrypt } )
 
-        this.#encryption.setSecret( { secret } )
         if( encrypt ) {
             deployer = this.#encryption.encryptDeployer( { deployer } )
         }

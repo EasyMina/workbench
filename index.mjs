@@ -8,7 +8,7 @@ easyMina
 
 
 await easyMina.newPersonas( { 
-    names: [ 'aaa', 'bbb' ], 
+    names: [ 'pilly' ], 
     groupName: 'testing' 
 } )
 

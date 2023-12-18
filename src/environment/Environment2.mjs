@@ -118,7 +118,7 @@ export class Environment {
     }
 
 
-    getAccounts( { account } ) {
+    getAccounts( { account, encrypt } ) {
         const path = [ 
             'validate__folders__credentials__name',
             'validate__folders__credentials__subfolders__accounts__name'
@@ -132,10 +132,13 @@ export class Environment {
                 if( !fs.statSync( filePath ).isDirectory() ) {
                     if( filePath.endsWith( '.json' ) ) {
                         const [ messages, comments ] = account
-                            .validateDeployer( { filePath } )
+                            .validateDeployer( { filePath, encrypt } )
                         if( messages.length === 0 ) {
                             const tmp = fs.readFileSync( filePath, 'utf-8' )
                             const json = JSON.parse( tmp )
+                            if( json['header']['encrypt'] ) {
+                                json['body'] = JSON.parse( encrypt.decrypt( { 'hash': json['body'] } ) )
+                            }
 
                             const struct = {
                                 filePath, 
@@ -160,8 +163,14 @@ export class Environment {
 
                         let key = item['name']
                         if( Object.hasOwn( abb[ groupName ], item['name'] ) ) {
-                            key += !item['name'].endsWith( '-' ) ? '-1' : '1'
+                            console.log( 'AAA', item['name'] )
+                            key += '-'
+                            key += Object
+                                .keys( abb[ groupName ] )
+                                .filter( a => a.startsWith( key ) )
+                                .length + 1
                         }
+                        console.log( 'key', key )
                         abb[ groupName ][ key ] = {
                             'filePath': item['filePath'],
                             'publicKey': item['publicKey']

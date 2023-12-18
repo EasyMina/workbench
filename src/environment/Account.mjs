@@ -19,7 +19,7 @@ export class Account {
     }
 
 
-    async createDeployer( { name, groupName, pattern=true, networkNames=[ 'berkeley' ] } ) {
+    async createDeployer( { name, groupName, pattern=true, networkNames=[ 'berkeley' ], encrypt } ) {
         const deployer = this.#createAddress( { name, pattern } )
 
         let faucets = await Promise
@@ -44,7 +44,8 @@ export class Account {
             'header': {
                 name,
                 'groups': [ groupName ], 
-                'explorer': null
+                'explorer': null,
+                encrypt
             },
             'body': {
                 'account': {
@@ -195,7 +196,7 @@ export class Account {
     }
 
 
-    validateDeployer( { filePath } ) {
+    validateDeployer( { filePath, encrypt } ) {
         const messages = []
         const comments = []
 
@@ -212,6 +213,12 @@ export class Account {
         }
 
         if( messages.length === 0 ) {
+            if( json['header']['encrypt'] ) {
+                // console.log( 'before', json['body'] )
+                json['body'] = JSON.parse( encrypt.decrypt( { 'hash': json['body'] } ) )
+                console.log( 'after', json['body'] )
+            }
+
             const tests = this.#config['validate']['files']['account']['keys']
                 .map( a => {
                     const { name, key, validation, type } = a 
@@ -255,6 +262,7 @@ export class Account {
 
                     return test
                 } )
+                console.log( 'test', tests )
         }
 
         return [ messages, comments ]
