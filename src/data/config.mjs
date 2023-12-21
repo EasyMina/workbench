@@ -1,4 +1,7 @@
 export const config = {
+    'server': {
+        'port': 3001
+    },
     'secret': {
         'fileName': '_.txt',
         'key': 'EASYMINA'

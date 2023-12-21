@@ -4,6 +4,8 @@ import { Environment } from './environment/Environment2.mjs'
 import { printMessages } from './helpers/mixed.mjs'
 import { Account } from './environment/Account.mjs'
 import { Encryption } from './environment/Encryption.mjs'
+import { Server } from './server/Server.mjs'
+
 
 import moment from 'moment'
 import fs from 'fs'
@@ -26,7 +28,7 @@ export class EasyMina {
 
     init() {
         const networkNames = [ 'berkeley' ]
-        const encryption = false
+        const encryption = true
 
         this.#account = this.#addAccount()
         this.#environment = this.#addEnvironment()
@@ -105,6 +107,21 @@ export class EasyMina {
         return true
     }
 */
+    server() {
+        const server = new Server( {
+            'server': this.#config['server'],
+            'validate': this.#config['validate']
+        } )
+
+        const projectName = ''
+
+        server
+            .init( { projectName } )
+            .start()
+        
+        return true
+    }
+
 
     #addState( { encryption, networkNames } ) {
         const secret = this.#environment.getSecret( {

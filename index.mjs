@@ -3,12 +3,16 @@ import { EasyMina } from './src/EasyMina.mjs'
 const easyMina = new EasyMina()
 easyMina
     .init()
-    .setAccountGroup( 'group-a' )
+    .setAccountGroup( 'group-b' )
     .setProjectName( 'ABC-Project' ) 
 
+await easyMina.newPersonas( { 
+    names: [ 'zilly' ]
+} ) 
+
+easyMina
+    .setAccountGroup( 'group-c' )
 
 await easyMina.newPersonas( { 
-    names: [ 'pilly' ], 
-    groupName: 'testing' 
-} )
-
+    names: [ 'zilly' ]
+} ) 
