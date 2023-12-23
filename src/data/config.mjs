@@ -1,6 +1,27 @@
 export const config = {
     'server': {
-        'port': 3001
+        'port': 3001,
+        'routes': {
+            'build': {
+                'source': './build',
+                'route': '/build'
+            },
+            'public': {
+                'route': '/public'
+            },
+            'getAccounts': {
+                'route': '/getAccounts'
+            },
+            'getContracts': {
+                'route': '/getContracts'
+            },
+            'getLocalO1js': {
+                'route': '/getLocalO1js'
+            },
+            'getSmartContracts': {
+                'route': '/getSmartContracts'
+            }
+        }
     },
     'secret': {
         'fileName': '_.txt',
@@ -149,5 +170,38 @@ export const config = {
                 'id': 'devnet'
             }
         }
+    },
+    'git': {
+        'fileName': './gitignore'
+    },
+    'typescript': {
+        'template': {
+            'compilerOptions': {
+                'target': 'ES2019',
+                'module': 'es2022',
+                'lib': [ 'dom', 'esnext' ],
+                'outDir': null,
+                'rootDir': null,
+                'strict': true,
+                'strictPropertyInitialization': false, // to enable generic constructors, e.g. on CircuitValue
+                'skipLibCheck': true,
+                'forceConsistentCasingInFileNames': true,
+                'esModuleInterop': true,
+                'resolveJsonModule': true,
+                'moduleResolution': 'node',
+                'experimentalDecorators': true,
+                'emitDecoratorMetadata': true,
+                'allowJs': true,
+                'declaration': false,
+                'sourceMap': false,
+                'noFallthroughCasesInSwitch': true,
+                'allowSyntheticDefaultImports': true,
+                'isolatedModules': true,
+                // 'outFile': null
+            },
+            'include': null,
+            'exclude': []
+        },
+        'fileName': './tsconfig.json'
     }
 }

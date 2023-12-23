@@ -4,11 +4,12 @@ import { Environment } from './environment/Environment2.mjs'
 import { printMessages } from './helpers/mixed.mjs'
 import { Account } from './environment/Account.mjs'
 import { Encryption } from './environment/Encryption.mjs'
+import { Typescript } from './environment/Typescript.mjs'
 import { Server } from './server/Server.mjs'
-
 
 import moment from 'moment'
 import fs from 'fs'
+import { PrivateKey } from 'o1js'
 
 
 export class EasyMina {
@@ -36,6 +37,21 @@ export class EasyMina {
         this.#state = this.#addState( { networkNames, encryption } )
 
         this.#encryption.setSecret( { 'secret': this.#state['secret'] } )
+
+        const typescript = new Typescript( {
+            'typescript': this.#config['typescript']
+        } )
+        typescript.addConfig()
+   
+        /*
+        const git = new Git( {
+            'git': this.#config['git']
+        } )
+        git.addGitIgnore()
+
+*/
+
+
 
         return this
     }
@@ -72,6 +88,76 @@ export class EasyMina {
         await this.#createMissingAccounts( { nameCmds, accountGroup } )
 
         return true
+    }
+
+
+    getAccount( { name, groupName } ) {
+        const accounts = this.#environment.getAccounts( { 
+            'account': this.#account, 
+            'encrypt': this.#encryption 
+        } )
+
+        try {
+            accounts[ groupName ][ name ]
+        } catch( e ) {
+            console.log( 'account not found.' )
+            process.exit( 1 )
+        }
+
+        const select = accounts[ groupName ][ name ]
+        let json = JSON.parse( fs.readFileSync( select['filePath'], 'utf-8' ) )
+        if( json['header']['encrypt'] ) {
+            json['body'] = JSON.parse( this.#encryption.decrypt( { 'hash': json['body'] } ) )
+        }
+
+        const result = {
+            'privateKey': {
+                'field': null,
+                'base58': null
+            },
+            'publicKey': {
+                'field': null,
+                'base58': null
+            }
+        }
+
+        result['privateKey']['base58'] = json['body']['account']['privateKey']
+        result['privateKey']['field'] = PrivateKey.fromBase58( result['privateKey']['base58'] )
+
+        result['publicKey']['field']  = result['privateKey']['field']
+            .toPublicKey()
+
+        result['publicKey']['base58'] = result['publicKey']['field']
+            .toBase58()
+
+        return result
+    }
+
+
+    requestContract() {
+        const result = {
+            'privateKey': {
+                'field': null,
+                'base58': null
+            },
+            'publicKey': {
+                'field': null,
+                'base58': null
+            }
+        }
+
+        result['privateKey']['base58'] = PrivateKey
+            .random()
+            .toBase58()
+        result['privateKey']['field'] = PrivateKey.fromBase58( result['privateKey']['base58'] )
+
+        result['publicKey']['field']  = result['privateKey']['field']
+            .toPublicKey()
+
+        result['publicKey']['base58'] = result['publicKey']['field']
+            .toBase58()
+
+        return result
     }
 
 /*
@@ -113,12 +199,10 @@ export class EasyMina {
             'validate': this.#config['validate']
         } )
 
-        const projectName = ''
-
         server
-            .init( { projectName } )
+            .init( { 'projectName': this.#state['projectName'] } )
             .start()
-        
+
         return true
     }
 

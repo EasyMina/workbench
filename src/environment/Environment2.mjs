@@ -125,7 +125,7 @@ export class Environment {
         ]
             .map( keyPath => keyPathToValue( { 'data': this.#config, keyPath } ) )
             .join( '/' )
-
+  
         const result = fs.readdirSync( path )
             .reduce( ( abb, file, index ) => {
                 const filePath = `${path}/${file}`
@@ -151,7 +151,6 @@ export class Environment {
                         }
                     }
                 }
-
                 return abb
             }, [] )
             .reduce( ( abb, item, index ) => {
@@ -163,14 +162,12 @@ export class Environment {
 
                         let key = item['name']
                         if( Object.hasOwn( abb[ groupName ], item['name'] ) ) {
-                            console.log( 'AAA', item['name'] )
                             key += '-'
                             key += Object
                                 .keys( abb[ groupName ] )
                                 .filter( a => a.startsWith( key ) )
                                 .length + 1
                         }
-                        console.log( 'key', key )
                         abb[ groupName ][ key ] = {
                             'filePath': item['filePath'],
                             'publicKey': item['publicKey']

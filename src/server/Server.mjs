@@ -18,7 +18,11 @@ export class Server {
 
     init( { projectName } ) {
         this.#app = express()
-        this.#state = this.#addState()
+
+        this.#state = this.#addState( { projectName } )
+        const [ messages, comments ] = this.#validateState( { 'state': this.#state } )
+        printMessages( { messages, comments } )
+
         this.#addRoutes( { projectName } )
 
         return this
@@ -40,12 +44,14 @@ export class Server {
     }
 
 
-    #addState() {
+    #addState( { projectName } ) {
         const state = {
             'accounts': null,
             'contracts': null,
             'localO1js': null,
-            'smartContracts': null
+            'smartContracts': null,
+            'buildFolder': null,
+            'publicFolder': null
         }
 
         state['accounts'] = [ 'Account1', 'Account2', 'Account3' ]
@@ -53,54 +59,81 @@ export class Server {
         state['localO1js'] = './node_modules/o1js/dist/web/index.js'
         state['smartContracts'] = [ 'SmartContract1', 'SmartContract2', 'SmartContract3' ]
 
+        state['publicFolder'] = './'
+        state['publicFolder'] += this.#config['validate']['folders']['workdir']['name'] + '/'
+        state['publicFolder'] += `${projectName}/`
+        state['publicFolder'] += this.#config['validate']['folders']['workdir']['subfolders']['subfolders']['frontend']['name']
+
+        state['buildFolder'] = this.#config['server']['routes']['build']['source']
+
         return state
     }
 
 
-    #addRoutes( { projectName } ) {
-        const [ messages, comments ] = this.#validateAddRoutes( { projectName } ) 
-        printMessages( { messages, comments } )
+    #validateState() {
+        const messages = []
+        const comments = []
 
-        this.#addRouteBuild()
+        const tmp = [
+            [ 'publicFolder', 'folder', true ],
+            [ 'buildFolder', 'folder', true ],
+            [ 'localO1js', 'file', false ] 
+        ]
+            .forEach( a => {
+                const [ key, type, required ] = a
+                const path = this.#state[ key ]
+
+                let msg = ''
+                switch( type ) {
+                    case 'folder':
+                        if( !fs.existsSync( path ) ) {
+                            msg = `Folder '${path}' is not a valid path.`
+                        } else if( !fs.statSync( path ).isDirectory() ) {
+                            msg = `Folder '${path}' is not a valid directory.`
+                        }
+                        break
+                    case 'file':
+                        if( !fs.existsSync( path ) ) {
+                            msg = `File '${path}' is not a valid path.`
+                        } else if( !fs.statSync( path ).isFile() ) {
+                            msg = `File '${path}' is not a valid file.`
+                        }
+                        break
+                    default:
+                        console.log( `Unknown type with value '${type}'.` )
+                        process.exit( 1 )
+                        break
+                }
+                
+                if( msg !== '' ) {
+                    if( required ) {
+                        messages.push( msg )
+                    } else {
+                        comments.push( msg )
+                    }
+                }
+            } )
+
+        return [ messages, comments ]
+    }
+
+
+    #addRoutes( { projectName } ) {
+        // this.#addRouteBuild()
         // this.#addRoutePublic()
-        // this.#addRouteGetAccounts()
-        // this.#addRouteGetContracts()
-        // this.#addRouteGetLocalO1js()
+        this.#addRouteGetAccounts()
+        this.#addRouteGetContracts()
+        this.#addRouteGetLocalO1js()
         // this.#addRouteGetSmartContracts()
         
         return true
     }
 
 
-    #validateAddRoutes( { projectName } ) {
-        const messages = []
-        const comments = []
-
-        const buildFolder = './build'
-        const workdirFolder = './' + this.#config['validate']['folders']['workdir']['name']
-        const projectFolder = workdirFolder + '/' + `${projectName}`
-        const frontendFolder = projectFolder + '/' + this.#config['validate']['folders']['workdir']['subfolders']['subfolders']['frontend']['name']
-
-        if( !fs.existsSync( buildFolder ) ) {
-            messages.push( `Build folder '${buildFolder}' is not found.` )
-        }
-
-        if( !fs.existsSync( workdirFolder ) ) {
-            messages.push( `Workdir '${workdirFolder}' does not exist.` )
-        } else if( !fs.existsSync( projectFolder ) ) {
-            messages.push( `Project Folder '${projectFolder}' does not exist.` )
-        } else if( !fs.existsSync( frontendFolder ) ) {
-            messages.push( `In Project Folder '${projectFolder}' the subfolder '${this.#config['validate']['folders']['workdir']['subfolders']['subfolders']['frontend']['name']}' does not exist.` )
-        }
-
-        return [ messages, comments ]
-    }
-
-
     #addRouteBuild() {
         this.#app.use(
-            '/build', 
-            express.static( './build' )
+            this.#config['server']['routes']['build']['route'], 
+            express.static( this.#state['buildFolder'] )
         )
 
         return true
@@ -108,9 +141,11 @@ export class Server {
 
 
     #addRoutePublic() {
+        console.log( '>>>', this.#config['server']['routes']['public']['route'] )
+        console.log( '>>>', this.#state['publicFolder'] ) 
         this.#app.use(
-            '/public', 
-            './workdir/hello-world/frontend'
+            this.#config['server']['routes']['public']['route'], 
+            this.#state['publicFolder']
         )
 
         return true
@@ -119,7 +154,7 @@ export class Server {
 
     #addRouteGetAccounts() {
         this.#app.get(
-            '/getAccounts', 
+            this.#config['server']['routes']['getAccounts']['route'], 
             ( req, res ) => { res.json( { 'data': this.#state['accounts'] } ) }
         )
 
@@ -129,7 +164,7 @@ export class Server {
 
     #addRouteGetContracts() {
         this.#app.get(
-            '/getContracts',
+            this.#config['server']['routes']['getContracts']['route'],
             ( req, res ) => { res.json( { 'data': this.#state['contracts'] } ) }
         )
 
@@ -139,10 +174,13 @@ export class Server {
 
     #addRouteGetLocalO1js() {
         this.#app.get(
-            '/getLocalO1js', 
+            this.#config['server']['routes']['getLocalO1js']['route'], 
             ( req, res ) => {
                 if( fs.existsSync( this.#state['localO1js'] ) ) {
-                    const fileContent = fs.readFileSync( this.#state['localO1js'], 'utf-8' )
+                    const fileContent = fs.readFileSync( 
+                        this.#state['localO1js'], 
+                        'utf-8' 
+                    )
                     res.send( fileContent )
                 } else {
                     res
@@ -158,7 +196,7 @@ export class Server {
 
     #addRouteGetSmartContracts() {
         this.#app.get(
-            '/getSmartContracts', 
+            this.#config['server']['routes']['getSmartContracts']['route'], 
             ( req, res ) => { res.json( { 'data': this.#state['smartContracts'] } ) }
         )
 

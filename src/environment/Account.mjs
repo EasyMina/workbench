@@ -216,7 +216,6 @@ export class Account {
             if( json['header']['encrypt'] ) {
                 // console.log( 'before', json['body'] )
                 json['body'] = JSON.parse( encrypt.decrypt( { 'hash': json['body'] } ) )
-                console.log( 'after', json['body'] )
             }
 
             const tests = this.#config['validate']['files']['account']['keys']
@@ -262,7 +261,6 @@ export class Account {
 
                     return test
                 } )
-                console.log( 'test', tests )
         }
 
         return [ messages, comments ]
