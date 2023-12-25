@@ -1,6 +1,6 @@
 
 
-import { Mina, AccountUpdate, PrivateKey } from 'o1js'
+import { Mina, AccountUpdate } from 'o1js'
 import { Square } from '../../../build/hello-world/backend/Square.js'
 import { EasyMina } from '../../../src/EasyMina.mjs'
 
