@@ -6,6 +6,8 @@ import { Account } from './environment/Account.mjs'
 import { Encryption } from './environment/Encryption.mjs'
 import { Typescript } from './environment/Typescript.mjs'
 import { Server } from './server/Server.mjs'
+import { ProjectImporter } from './import/ProjectImporter.mjs'
+
 
 import moment from 'moment'
 import fs from 'fs'
@@ -18,6 +20,7 @@ export class EasyMina {
     #environment
     #account
     #encryption
+    #projectImporter
 
 
     constructor() {
@@ -43,6 +46,8 @@ export class EasyMina {
         } )
         typescript.addConfig()
    
+        this.#projectImporter = new ProjectImporter()
+
         /*
         const git = new Git( {
             'git': this.#config['git']
@@ -193,7 +198,7 @@ export class EasyMina {
         return true
     }
 */
-    server() {
+    startServer() {
         const server = new Server( {
             'server': this.#config['server'],
             'validate': this.#config['validate']
@@ -203,6 +208,14 @@ export class EasyMina {
             .init( { 'projectName': this.#state['projectName'] } )
             .start()
 
+        return true
+    }
+
+
+    async importProject( { projectPath } ) {
+        await this.#projectImporter.addProject( { projectPath } )
+
+        console.log( 'A' )
         return true
     }
 
