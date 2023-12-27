@@ -5,7 +5,9 @@ import { Square } from '../../../build/hello-world/backend/Square.js'
 import { EasyMina } from '../../../src/EasyMina.mjs'
 
 console.log( '- Add Network' )
-const Berkeley = Mina.Network( { 'mina': 'https://berkeley.minascan.io/graphql' } )
+const Berkeley = Mina.Network( { 
+    'mina': 'https://berkeley.minascan.io/graphql' 
+} )
 Mina.setActiveInstance( Berkeley )
  
 console.log( '- Add EasyMina' )
