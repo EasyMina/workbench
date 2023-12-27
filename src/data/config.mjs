@@ -85,6 +85,140 @@ export const config = {
                         'type': 'string'
                     }
                 ]
+            },
+            'importPayload': {
+                'root': [
+                    {
+                        'name': 'projectName',
+                        'key': 'projectName',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'name',
+                        'key': 'name',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'description',
+                        'key': 'description',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'readme',
+                        'key': 'readme',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'contracts',
+                        'key': 'contracts',
+                        'validation': 'validate__values__string',
+                        'type': 'array',
+                        'required': true
+                    },
+                    {
+                        'name': 'demos',
+                        'key': 'demos',
+                        'validation': 'validate__values__string',
+                        'type': 'array',
+                        'required': true
+                    }
+                ],
+                'contracts': [
+                    {
+                        'name': 'name',
+                        'key': 'name',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'description',
+                        'key': 'description',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'readme',
+                        'key': 'readme',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': false
+                    },
+                    {
+                        'name': 'source',
+                        'key': 'source',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'destination',
+                        'key': 'destination',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    }
+                ],
+                'demos': [
+                    {
+                        'name': 'name',
+                        'key': 'name',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'description',
+                        'key': 'description',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'readme',
+                        'key': 'readme',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': false
+                    },
+                    {
+                        'name': 'type',
+                        'key': 'type',
+                        'validation': 'validate__values__workdirFolder',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'source',
+                        'key': 'source',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'destination',
+                        'key': 'destination',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': true
+                    },
+                    {
+                        'name': 'youtube',
+                        'key': 'youtube',
+                        'validation': 'validate__values__string',
+                        'type': 'string',
+                        'required': false
+                    }
+                ]
             }
         },
         'values': {   
@@ -103,6 +237,14 @@ export const config = {
             'minaPrivateKey': {
                 'regex': /^EK[a-zA-Z0-9]+/,
                 'description': "Allowed is a valid Mina private key format (starting with 'EK' followed by alphanumeric characters)."
+            },
+            'workdirFolder': {
+                'regex': /^(frontend|interaction)$/,
+                'description': "Allowed is input limited to either 'frontend' or 'interaction' with no other text allowed."
+            },
+            'youtubeVideo': {
+                'regex': /^(https?:\/\/)?(www\.)?youtube\.com\/watch\?v=[\w-]+(&\S*)?|^https?:\/\/youtu\.be\/[\w-]+/,
+                'description': 'Allowed are only valid YouTube video URLs, covering standard and shortened formats.'
             }
         }
     },

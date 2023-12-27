@@ -2,7 +2,7 @@ export const struct =  {
     "projectName": "demo",
     "name": "Demo",
     "description": "this is a demo!",
-    "readme": "",
+    "readme": "# This is a test",
     "contracts": [
         {
             "name": "Basic",

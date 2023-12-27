@@ -46,7 +46,9 @@ export class EasyMina {
         } )
         typescript.addConfig()
    
-        this.#projectImporter = new ProjectImporter()
+        this.#projectImporter = new ProjectImporter( {
+            'validate': this.#config['validate']
+        } )
 
         /*
         const git = new Git( {
