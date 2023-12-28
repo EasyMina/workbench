@@ -40,14 +40,14 @@ You can check the following steps beforehand. If the default settings are in pla
 
 The compiled contract is stored in the `./build` folder and is then imported into the script.
 
-```javascript
+```js
 import { Square } from '../../../build/hello-world/backend/Square.js'
 ```
 
 **Choose Network**  
 By default, we use the Berkeley test network.
 
-```javascript
+```js
 const Berkeley = Mina.Network( { 
     'mina': 'https://berkeley.minascan.io/graphql' 
 } )
@@ -56,7 +56,7 @@ const Berkeley = Mina.Network( {
 **Choose Account**  
 Choose a funded account that will pay the transaction fee later.
 
-```javascript
+```js
 const deployer = easyMina.getAccount( {
     'name': 'alice',
     'groupName': 'a'

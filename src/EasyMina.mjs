@@ -201,6 +201,7 @@ export class EasyMina {
     }
 */
     startServer() {
+        console.log( `Start server for '${this.#state['projectName']}'.` )
         const server = new Server( {
             'server': this.#config['server'],
             'validate': this.#config['validate']
