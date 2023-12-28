@@ -1,3 +1,5 @@
+<img src="/content/logo.png" alt="Logo" height="50">
+
 # Hello World
 
 This demo demonstrates working with zkApp Contracts. Files are stored in various directories to assist in getting started with zkApp programming.

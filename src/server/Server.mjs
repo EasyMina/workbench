@@ -1,5 +1,10 @@
 import express from 'express'
 import path from 'path'
+import { fileURLToPath } from 'url'
+import { marked } from 'marked'
+import { fileMd } from './templates/fileMd.mjs'
+import { frontendMd } from './templates/frontendMd.mjs'
+
 import fs from 'fs'
 
 import { printMessages } from './../helpers/mixed.mjs'
@@ -46,6 +51,7 @@ export class Server {
 
     #addState( { projectName } ) {
         const state = {
+            'absoluteRoot': null,
             'accounts': null,
             'contracts': null,
             'localO1js': null,
@@ -54,12 +60,15 @@ export class Server {
             'publicFolder': null
         }
 
+        state['absoluteRoot'] = this.#getRootAbsolutePath()['result']
+
         state['accounts'] = [ 'Account1', 'Account2', 'Account3' ]
         state['contracts'] = [ 'Contract1', 'Contract2', 'Contract3' ]
         state['localO1js'] = './node_modules/o1js/dist/web/index.js'
         state['smartContracts'] = [ 'SmartContract1', 'SmartContract2', 'SmartContract3' ]
 
-        state['publicFolder'] = './'
+        state['publicFolder'] = ''
+        state['publicFolder'] += state['absoluteRoot'] + '/'
         state['publicFolder'] += this.#config['validate']['folders']['workdir']['name'] + '/'
         state['publicFolder'] += `${projectName}/`
         state['publicFolder'] += this.#config['validate']['folders']['workdir']['subfolders']['subfolders']['frontend']['name']
@@ -73,6 +82,10 @@ export class Server {
     #validateState() {
         const messages = []
         const comments = []
+
+        if( this.#state['absoluteRoot'] === null ) {
+            messages.push( `No 'package.json' file in root detected. 'npm init -y' ?. ` )
+        }
 
         const tmp = [
             [ 'publicFolder', 'folder', true ],
@@ -120,7 +133,7 @@ export class Server {
 
     #addRoutes( { projectName } ) {
         // this.#addRouteBuild()
-        // this.#addRoutePublic()
+        this.#addRoutePublic()
         this.#addRouteGetAccounts()
         this.#addRouteGetContracts()
         this.#addRouteGetLocalO1js()
@@ -140,14 +153,178 @@ export class Server {
     }
 
 
+    #getRootAbsolutePath() {
+        const __filename = fileURLToPath( import.meta.url )
+        const __dirname = path.dirname( __filename )
+        const root = new Array( 10 )
+            .fill()
+            .reduce( ( acc, a ) => {
+                try {
+                    acc['_acc'] = path.resolve( acc['_acc'], '..' )
+                    const files = fs.readdirSync( acc['_acc'] )
+                    if( files.includes( 'package.json' ) ) {
+                        const tmp = fs.readFileSync( `${acc['_acc']}/package.json` )
+                        const json = JSON.parse( tmp )
+                        if( 
+                            Object.hasOwn( json, 'main' ) && 
+                            acc['result'] === null 
+                        ) {
+                            acc['result'] = acc['_acc']
+                        }
+                    }
+                } catch( e ) {}
+                return acc
+            }, { '_acc': __dirname, 'result': null } )
+    
+        return root
+    }
+
+
+    #createFrontendOverview() {
+        const htmlContent = marked( frontendMd )
+
+        const table = [ 'Name', 'Source', 'Readme' ]
+        const files = fs.readdirSync( this.#state['publicFolder'] )
+
+        const frontend = files
+            .filter( a => a.endsWith( '.html' ) )
+            .reduce( ( acc, fileName, index ) => {
+                if( index === 0 ) {
+                    acc += `| ${table.map( a => a ).join( ' | ' )} |  \n`
+                    acc += `| ${table.map( a => `:--` ).join( ' | ' )} |  \n`
+                }
+
+                acc += `| `
+                acc += table
+                    .map( column => {
+                        let str
+                        switch( column ) {
+                            case 'Name':
+                                str = fileName
+                                break
+                            case 'Source':
+                                str = `[X](./${fileName})`
+                                break
+                            case 'Readme':
+                                const search = `${fileName.substring( 0, fileName.length - 5 )}.md`
+                                console.log( 's', search )
+                                if( files.includes( search ) ) {
+                                    str = `[X](./${search})`
+                                } else {
+                                    str = ''
+                                }
+
+                                
+                                break
+                            default:
+                                console.log( 'Error' )
+                                break
+                        }
+                        return str
+                    } )
+                    .join( ' | ')
+                acc += ` |  \n`
+    
+                return acc
+            }, '' )
+
+        const markdown = [
+            [ '{{frontend}}', frontend ]
+        ]
+            .reduce( ( acc, a, index, all ) => {
+                acc = acc.replace( a[ 0 ], a[ 1 ] )
+                if( all.length -1 === index ) {
+                    acc = marked( acc )
+                }
+                return acc
+            }, frontendMd )
+
+        const result = fileMd
+            .replace( '{{markdown}}', markdown )
+
+        return result
+    }
+
+
     #addRoutePublic() {
-        console.log( '>>>', this.#config['server']['routes']['public']['route'] )
-        console.log( '>>>', this.#state['publicFolder'] ) 
         this.#app.use(
-            this.#config['server']['routes']['public']['route'], 
-            this.#state['publicFolder']
+            '/',
+            express.static( this.#state['publicFolder'] + '/' )
         )
 
+        this.#app.get(
+            '/frontend/index.html', 
+            ( req, res ) => { 
+                const str = this.#createFrontendOverview()
+
+                res.send( str )
+            }
+        ) 
+
+        this.#app.get(
+            '/frontend/', 
+            ( req, res ) => { res.redirect( '/frontend/index.html' ) }
+        )
+
+        this.#app.get(
+            '/frontend/:filename', 
+            ( req, res ) => {
+                const { filename } = req['params']
+                const filePath = path.join( this.#state['publicFolder'], filename )
+
+                if( filename.endsWith( '.md' ) ) {
+                    try {
+                        console.log( 'MD')
+                        const data = fs.readFileSync( filePath, 'utf8' )
+                        const htmlContent = marked( data )
+
+                        const str = fileMd
+                            .replace( '{{markdown}}', htmlContent )
+                        res.send( str )
+                    } catch( e ) {
+                        console.log( 'e', e )
+                        return res
+                            .status( 500 )
+                            .send( 'Error reading the file' )
+                    }
+
+                } else {
+                    res.sendFile( filePath, ( err ) => {
+                        if( err ) {
+                          res
+                            .status( 404 )
+                            .send( 'File not found' )
+                        }
+                    } )
+                }
+        } )
+
+        this.#app.get(
+            '/frontend/*/*', 
+            ( req, res ) => {
+                const { 0: subfolder, 1: filename } = req.params
+                if( !subfolder || !filename ) {
+                    return res
+                        .status( 400 )
+                        .send( 'Invalid URL format' )
+                }
+            
+                const filePath = path.join( 
+                    this.#state['publicFolder'], 
+                    subfolder, 
+                    filename
+                )
+
+                try {
+                    const data = fs.readFileSync( filePath, 'utf8' )
+                    res.send( data )
+                } catch( err ) {
+                    console.error( 'Error reading the file:', err )
+                    res
+                        .status( 500 )
+                        .send( 'Internal Server Error' )
+                }
+          });
         return true
     }
 
