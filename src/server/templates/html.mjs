@@ -1,7 +1,17 @@
-export const fileMd = `
+const html = `
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="github-markdown.css">
 <style>
+  {{style}}
+</style>
+<body>
+<article class="markdown-body">
+  {{markdown}}
+</article>
+</body>
+`
+
+const css = `
 /*dark*/
 body {
   background-color: #0d1117;
@@ -1110,13 +1120,6 @@ tr {
 			padding: 15px;
 		}
 	}
-</style>
-<body>
-<article class="markdown-body">
-  {{markdown}}
-</article>
-</body>
-
 `
 
-
+export { html, css }

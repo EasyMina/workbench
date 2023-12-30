@@ -8,7 +8,6 @@ import { Typescript } from './environment/Typescript.mjs'
 import { Server } from './server/Server.mjs'
 import { ProjectImporter } from './import/ProjectImporter.mjs'
 
-
 import moment from 'moment'
 import fs from 'fs'
 import { PrivateKey } from 'o1js'
@@ -208,7 +207,12 @@ export class EasyMina {
         } )
 
         server
-            .init( { 'projectName': this.#state['projectName'] } )
+            .init( {
+                'projectName': this.#state['projectName'],
+                'environment': this.#environment,
+                'account': this.#account, 
+                'encrypt': this.#encryption
+            } )
             .start()
 
         return true

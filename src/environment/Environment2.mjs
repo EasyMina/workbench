@@ -143,6 +143,7 @@ export class Environment {
                             const struct = {
                                 filePath, 
                                 'name': json['header']['name'],
+                                'explorer': json['header']['explorer'],
                                 'publicKey': json['body']['account']['publicKey'],
                                 'groups': json['header']['groups']
                             }
@@ -170,7 +171,8 @@ export class Environment {
                         }
                         abb[ groupName ][ key ] = {
                             'filePath': item['filePath'],
-                            'publicKey': item['publicKey']
+                            'publicKey': item['publicKey'],
+                            'explorer': item['explorer']
                         }
                     } )
 

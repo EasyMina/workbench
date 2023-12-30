@@ -2,11 +2,11 @@ import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { marked } from 'marked'
-import { fileMd } from './templates/fileMd.mjs'
-import { frontendMd } from './templates/frontendMd.mjs'
+
+import { html, css } from './templates/html.mjs'
+import { frontend, overview } from './templates/index.mjs'
 
 import fs from 'fs'
-
 import { printMessages } from './../helpers/mixed.mjs'
 
 
@@ -14,17 +14,26 @@ export class Server {
     #config
     #app
     #state
-
+    #container
+    #environment
+    #account
+    #encrypt
+    
 
     constructor( { server, validate } ) {
         this.#config = { server, validate }
+        return true
     }
 
 
-    init( { projectName } ) {
+    init( { projectName, environment, account, encrypt } ) {
         this.#app = express()
-
         this.#state = this.#addState( { projectName } )
+        this.#container = this.#addContainer()
+        this.#environment = environment
+        this.#account = account
+        this.#encrypt = encrypt
+
         const [ messages, comments ] = this.#validateState( { 'state': this.#state } )
         printMessages( { messages, comments } )
 
@@ -49,8 +58,15 @@ export class Server {
     }
 
 
+    #addContainer() {
+        return html
+            .replace( '{{style}}', css )
+    }
+
+
     #addState( { projectName } ) {
         const state = {
+            'projectName': null,
             'absoluteRoot': null,
             'accounts': null,
             'contracts': null,
@@ -60,6 +76,7 @@ export class Server {
             'publicFolder': null
         }
 
+        state['projectName'] = projectName
         state['absoluteRoot'] = this.#getRootAbsolutePath()['result']
 
         state['accounts'] = [ 'Account1', 'Account2', 'Account3' ]
@@ -133,6 +150,7 @@ export class Server {
 
     #addRoutes( { projectName } ) {
         // this.#addRouteBuild()
+        this.#addRouteOverview()
         this.#addRoutePublic()
         this.#addRouteGetAccounts()
         this.#addRouteGetContracts()
@@ -181,12 +199,10 @@ export class Server {
 
 
     #createFrontendOverview() {
-        const htmlContent = marked( frontendMd )
-
         const table = [ 'Name', 'Source', 'Readme' ]
         const files = fs.readdirSync( this.#state['publicFolder'] )
 
-        const frontend = files
+        const frontendMd = files
             .filter( a => a.endsWith( '.html' ) )
             .reduce( ( acc, fileName, index ) => {
                 if( index === 0 ) {
@@ -214,7 +230,6 @@ export class Server {
                                     str = ''
                                 }
 
-                                
                                 break
                             default:
                                 console.log( 'Error' )
@@ -229,20 +244,43 @@ export class Server {
             }, '' )
 
         const markdown = [
-            [ '{{frontend}}', frontend ]
+            [ '{{frontend}}', frontendMd ]
         ]
             .reduce( ( acc, a, index, all ) => {
                 acc = acc.replace( a[ 0 ], a[ 1 ] )
                 if( all.length -1 === index ) {
+                    acc = acc
+                        .replace( '{{projectName}}', this.#state['projectName'] )
                     acc = marked( acc )
                 }
                 return acc
-            }, frontendMd )
+            }, frontend )
 
-        const result = fileMd
+        const result = this.#container
             .replace( '{{markdown}}', markdown )
 
         return result
+    }
+
+
+    #addRouteOverview() {
+        const temp = ''
+
+        this.#app.get(
+            '/',
+            ( req, res ) => {
+                const _insert = overview
+                    .replace( '{{projectName}}', this.#state['projectName'] )
+                    .replace( '{{accounts}}', 'accounts' )
+
+                const html = this.#container
+                    .replace( '{{markdown}}', marked( _insert ) )
+
+                res.send( html )
+            }
+        )
+
+        return true
     }
 
 
@@ -256,7 +294,6 @@ export class Server {
             '/frontend/index.html', 
             ( req, res ) => { 
                 const str = this.#createFrontendOverview()
-
                 res.send( str )
             }
         ) 
@@ -278,7 +315,7 @@ export class Server {
                         const data = fs.readFileSync( filePath, 'utf8' )
                         const htmlContent = marked( data )
 
-                        const str = fileMd
+                        const str = this.#container
                             .replace( '{{markdown}}', htmlContent )
                         res.send( str )
                     } catch( e ) {
@@ -324,7 +361,8 @@ export class Server {
                         .status( 500 )
                         .send( 'Internal Server Error' )
                 }
-          });
+            } 
+        )
         return true
     }
 
@@ -332,7 +370,14 @@ export class Server {
     #addRouteGetAccounts() {
         this.#app.get(
             this.#config['server']['routes']['getAccounts']['route'], 
-            ( req, res ) => { res.json( { 'data': this.#state['accounts'] } ) }
+            ( req, res ) => { 
+                const availableDeyployers = this.#environment.getAccounts( { 
+                    'account': this.#account, 
+                    'encrypt': this.#encrypt 
+                } )
+
+                res.json( { 'data': availableDeyployers } ) 
+            }
         )
 
         return true
@@ -374,7 +419,9 @@ export class Server {
     #addRouteGetSmartContracts() {
         this.#app.get(
             this.#config['server']['routes']['getSmartContracts']['route'], 
-            ( req, res ) => { res.json( { 'data': this.#state['smartContracts'] } ) }
+            ( req, res ) => { 
+                res.json( { 'data': this.#state['smartContracts'] } ) 
+            }
         )
 
         return true
