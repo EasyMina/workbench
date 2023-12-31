@@ -19,12 +19,12 @@ export class Account {
     }
 
 
-    async createDeployer( { name, groupName, pattern=true, networkNames=[ 'berkeley' ], encrypt } ) {
+    async createDeployer( { name, groupName, pattern=true, networkName, encrypt } ) {
         const deployer = this.#createAddress( { name, pattern } )
 
         let faucets = await Promise
             .all(
-                networkNames
+                [ networkName ]
                     .map( async( networkName ) => {
                         const faucet = await this.#sendFaucet( { 
                             'publicKey': deployer['publicKey'],

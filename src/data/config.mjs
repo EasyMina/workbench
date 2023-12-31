@@ -282,6 +282,7 @@ export const config = {
         }
     },
     'networks': {
+        'supported': [ 'berkeley' ],
         'berkeley': {
             'explorer': {
                 'wallet': 'https://berkeley.minaexplorer.com/wallet/{{publicKey}}',

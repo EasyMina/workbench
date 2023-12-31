@@ -5,9 +5,14 @@ const html = `
   {{style}}
 </style>
 <body>
-<article class="markdown-body">
-  {{markdown}}
-</article>
+  <article class="markdown-body">
+  <label for="selectOption">Select an option:</label>
+  <select id="selectOption">
+      <option value="berkeley">Berkeley</option>
+      <option value="testworld2">Testworld2</option>
+  </select>
+    {{markdown}}
+  </article>
 </body>
 `
 
@@ -17,7 +22,7 @@ body {
   background-color: #0d1117;
 }
 
-td {
+td, label {
   color: white;
 }
 

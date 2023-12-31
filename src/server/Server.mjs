@@ -2,6 +2,8 @@ import express from 'express'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { marked } from 'marked'
+import axios from 'axios'
+
 
 import { html, css } from './templates/html.mjs'
 import { frontend, overview } from './templates/index.mjs'
@@ -264,14 +266,54 @@ export class Server {
 
 
     #addRouteOverview() {
-        const temp = ''
-
         this.#app.get(
             '/',
-            ( req, res ) => {
+            async ( req, res ) => {
+                const accounts = await axios.request( {
+                    'method': 'get',
+                    'maxBodyLength': Infinity,
+                    'url': 'http://localhost:3001/getAccounts',
+                    'headers': { }
+                } )
+
+                const rows = [ 'name', 'address', 'balance', 'pending', 'berkeley', 'testnet2' ]
+                const tables = Object
+                  .entries( accounts['data']['data'] )
+                  .reduce( ( acc, a, index ) => {
+                    const [ key, value ] = a
+                    acc += `Group ${key}  \n`
+                    acc += Object
+                        .entries( value )
+                        .reduce( ( abb, b, rindex ) => {
+                            const [ k, v ] = b
+                            if( rindex === 0 ) {
+                                abb += `| ${rows.join( ' | ' )} |  \n`
+                                abb += `| ${new Array( rows.length).fill().map( a => ':--' ).join( ' | ' )} |  \n`
+                            }
+
+                            const row = [ 
+                                k, 
+                                `${v['publicKey'].slice(0, 8)}...${v['publicKey'].slice(-4)}`, 
+                                '<div id="balance"></div>',
+                                '<div id="pending"></div>',
+                                `[X](${v['explorer']['berkeley']})`,
+                                `[X](${v['explorer']['testworld2']})`
+                            ]
+
+                            abb += `| ${row.join( ' | ' )} |  \n`
+
+                            return abb
+                        }, '' )
+                    acc += '  \n'
+                    acc += `  \n`
+
+                    return acc
+                  }, '' )
+
+
                 const _insert = overview
                     .replace( '{{projectName}}', this.#state['projectName'] )
-                    .replace( '{{accounts}}', 'accounts' )
+                    .replace( '{{accounts}}', tables )
 
                 const html = this.#container
                     .replace( '{{markdown}}', marked( _insert ) )

@@ -81,8 +81,8 @@ export class EasyMina {
     }
 
 
-    async newPersonas( { names=[ 'this', 'that' ] } ) {
-        const [ messages, comments ] = this.#validateState( { names } )
+    async newPersonas( { names=[ 'this', 'that' ], networkName='berkeley' } ) {
+        const [ messages, comments ] = this.#validateState( { names, networkName } )
         printMessages( { messages, comments } )
 
         const { accountGroup, projectName } = this.#state
@@ -91,7 +91,7 @@ export class EasyMina {
 
         const nameCmds = names
             .map( name => [ name, accountGroup ] )
-        await this.#createMissingAccounts( { nameCmds, accountGroup } )
+        await this.#createMissingAccounts( { nameCmds, accountGroup, networkName } )
 
         return true
     }
@@ -273,13 +273,12 @@ export class EasyMina {
     }
 
 
-    async #createMissingAccounts( { nameCmds } ) {
+    async #createMissingAccounts( { nameCmds, networkName } ) {
         const availableDeyployers = this.#environment.getAccounts( { 
             'account': this.#account, 
             'encrypt': this.#encryption 
         } )
 
-        console.log( availableDeyployers )
         const missingNames = nameCmds
             .filter( a => {
                 const [ name, accountGroup ] = a
@@ -301,7 +300,7 @@ export class EasyMina {
                 name,
                 groupName,
                 'pattern': true,
-                'networkNames': this.#state['networkNames'],
+                networkName,
                 'secret': this.#state['secret'],
                 'encrypt': this.#state['encryption'],
                 'account': this.#account
@@ -325,9 +324,9 @@ export class EasyMina {
     }
 
 
-    async #createAccount( { name, groupName, pattern, networkNames, secret, encrypt, account } ) {
+    async #createAccount( { name, groupName, pattern, networkName, secret, encrypt, account } ) {
         let deployer = await account
-            .createDeployer( { name, groupName, pattern, networkNames, encrypt } )
+            .createDeployer( { name, groupName, pattern, networkName, encrypt } )
 
         if( encrypt ) {
             deployer = this.#encryption.encryptDeployer( { deployer } )
@@ -337,7 +336,7 @@ export class EasyMina {
     }
 
 
-    #validateState( { accountGroup=null, projectName=null, names=null } ) {
+    #validateState( { accountGroup=null, projectName=null, names=null, networkName=null } ) {
         const messages = []
         const comments = []
  
@@ -371,6 +370,13 @@ export class EasyMina {
                     }
 
                 } )
+        }
+
+        if( networkName === null ) {
+        } else if( typeof networkName !== 'string' ) {
+            messages.push( `Key 'networkName' is not type of string.` )
+        } else if( !this.#config['networks']['supported'].includes( networkName ) ) {
+            messages.push( `Key 'networkName' with the value '${networkName}' is not a valid input. Supported networks are ${this.#config['networks']['supported'].join( ',' )}.` )
         }
 
         return [ messages, comments ]
