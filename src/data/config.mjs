@@ -68,9 +68,9 @@ export const config = {
                     },
                     {
                         'name': 'groups',
-                        'key': 'header__groups',
+                        'key': 'header__groupName',
                         'validation': 'validate__values__string',
-                        'type': 'array'
+                        'type': 'string'
                     },
                     {
                         'name': 'publicKey',

@@ -49,16 +49,13 @@ export class EasyMina {
             'validate': this.#config['validate']
         } )
 
-        /*
+/*
         const git = new Git( {
             'git': this.#config['git']
         } )
         git.addGitIgnore()
 
 */
-
-
-
         return this
     }
 
@@ -278,7 +275,9 @@ export class EasyMina {
             'account': this.#account, 
             'encrypt': this.#encryption 
         } )
-
+        console.log( 'name', nameCmds )
+        console.log( 'av', availableDeyployers )
+        process.exit( 1 )
         const missingNames = nameCmds
             .filter( a => {
                 const [ name, accountGroup ] = a

@@ -145,9 +145,10 @@ export class Environment {
                                 'name': json['header']['name'],
                                 'explorer': json['header']['explorer'],
                                 'publicKey': json['body']['account']['publicKey'],
-                                'groups': json['header']['groups']
+                                'groupName': null
                             }
 
+                            struct['groupName'] = json['header']['groupName']
                             abb.push( struct )
                         }
                     }
@@ -155,30 +156,31 @@ export class Environment {
                 return abb
             }, [] )
             .reduce( ( abb, item, index ) => {
-                item['groups']
-                    .forEach( groupName => {
-                        if( !Object.hasOwn( abb, groupName ) ) {
-                            abb[ groupName ] = {}
-                        }
+                const { groupName } = item
 
-                        let key = item['name']
-                        if( Object.hasOwn( abb[ groupName ], item['name'] ) ) {
-                            key += '-'
-                            key += Object
-                                .keys( abb[ groupName ] )
-                                .filter( a => a.startsWith( key ) )
-                                .length + 1
-                        }
-                        abb[ groupName ][ key ] = {
-                            'filePath': item['filePath'],
-                            'publicKey': item['publicKey'],
-                            'explorer': item['explorer']
-                        }
-                    } )
+                if( !Object.hasOwn( abb, groupName ) ) {
+                    abb[ groupName ] = {}
+                }
+
+                let key = item['name']
+                if( Object.hasOwn( abb[ groupName ], item['name'] ) ) {
+                    key += '-'
+                    key += Object
+                        .keys( abb[ groupName ] )
+                        .filter( a => a.startsWith( key ) )
+                        .length + 1
+                }
+                abb[ groupName ][ key ] = {
+                    'filePath': item['filePath'],
+                    'publicKey': item['publicKey'],
+                    'explorer': item['explorer']
+                }
 
                 return abb
             }, {} )
 
+console.log( 'HERE', JSON.stringify( result, null, 4 ) )
+process.exit( 1 )
         return result
     }
 

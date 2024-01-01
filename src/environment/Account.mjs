@@ -4,6 +4,7 @@ import { keyPathToValue } from './../helpers/mixed.mjs'
 import { PrivateKey } from 'o1js'
 import axios from 'axios'
 import fs from 'fs'
+import moment from 'moment'
 
 
 export class Account {
@@ -22,50 +23,46 @@ export class Account {
     async createDeployer( { name, groupName, pattern=true, networkName, encrypt } ) {
         const deployer = this.#createAddress( { name, pattern } )
 
-        let faucets = await Promise
-            .all(
-                [ networkName ]
-                    .map( async( networkName ) => {
-                        const faucet = await this.#sendFaucet( { 
-                            'publicKey': deployer['publicKey'],
-                            networkName
-                        } )
-                        return faucet
-                    } )
-            )
+        const faucet = await this.#sendFaucet( { 
+            'publicKey': deployer['publicKey'],
+            networkName
+        } )
 
-        faucets = faucets
-            .reduce( ( acc, a, index ) => {
-                acc[ a['networkName'] ] = a['status']
-                return acc
-            }, {} )
-        
         const struct = {
             'header': {
                 name,
-                'groups': [ groupName ], 
+                groupName,
+                networkName,
+                'addressShort': null,
+                'addressFull': null,
                 'explorer': null,
+                'created': null,
                 encrypt
             },
             'body': {
                 'account': {
-                    'publicKey': deployer['publicKey'],
-                    'privateKey': deployer['privateKey']
+                    'publicKey': null,
+                    'privateKey': null
                 },
-                'faucets': {
-                    faucets
-                }
-            }
+                'faucet': faucet
+            },
+            'disclaimer': null
         }
 
-        struct['header']['explorer'] = Object
-            .entries( this.#config['networks'] )
-            .reduce( ( acc, a, index ) => {
-                const [ key, value ] = a
-                acc[ key ] = value['explorer']['wallet']
-                    .replace( '{{publicKey}}', struct['body']['account']['publicKey'] )
-                return acc
-            }, {} )
+        struct['header']['created'] = moment().format( 'YYYY-MM-DD hh:mm:ss A');
+
+        struct['header']['addressShort'] = `${deployer['publicKey'].slice( 0, 8 )}...${deployer['publicKey'].slice( -4 )}`
+        struct['header']['addressFull'] = deployer['publicKey']
+        struct['header']['explorer'] = this.#config['networks'][ networkName ]['explorer']['wallet']
+            .replace( '{{publicKey}}', deployer['publicKey'] )
+
+        // struct['header']['paymentID'] = faucet['status']['paymentID']
+
+        struct['body']['account']['publicKey'] = deployer['publicKey']
+        struct['body']['account']['privateKey'] = deployer['privateKey']
+
+        struct['disclaimer'] = this.#config['accounts']['disclaimer']
+        console.log( JSON.stringify( struct, null, 4 ) )
 
         return struct
     }
@@ -108,7 +105,7 @@ export class Account {
     }
 
 
-    async #sendFaucet( { publicKey, networkName='berkeley' } ) {
+    async #sendFaucet( { publicKey, networkName } ) {
         const url = this.#config['networks'][ networkName ]['faucet']['url']
         const network = this.#config['networks'][ networkName ]['faucet']['id']
         const address = publicKey
