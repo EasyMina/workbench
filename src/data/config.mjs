@@ -51,6 +51,9 @@ export const config = {
                         },
                         'frontend': {
                             'name': 'frontend'
+                        },
+                        'contracts': {
+                            'name': 'contracts' 
                         }
                     }
                 }
@@ -345,6 +348,6 @@ export const config = {
             'include': null,
             'exclude': []
         },
-        'fileName': './tsconfig.json'
+        'fileName': 'tsconfig.json'
     }
 }

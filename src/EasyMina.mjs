@@ -3,6 +3,7 @@ import { Environment } from './environment/Environment2.mjs'
 
 import { printMessages } from './helpers/mixed.mjs'
 import { Account } from './environment/Account.mjs'
+import { Contract } from './environment/Contract.mjs'
 import { Encryption } from './environment/Encryption.mjs'
 import { Typescript } from './environment/Typescript.mjs'
 import { Server } from './server/Server.mjs'
@@ -20,7 +21,7 @@ export class EasyMina {
     #account
     #encryption
     #projectImporter
-
+    #contract
 
     constructor() {
         this.#config = config
@@ -41,14 +42,19 @@ export class EasyMina {
         this.#encryption.setSecret( { 'secret': this.#state['secret'] } )
 
         const typescript = new Typescript( {
+            'validate': this.#config['validate'],
             'typescript': this.#config['typescript']
         } )
-        typescript.addConfig()
+
+        typescript.addConfigs( { 
+            'environment': this.#environment
+        } )
    
         this.#projectImporter = new ProjectImporter( {
             'validate': this.#config['validate']
         } )
 
+        this.#contract = new Contract( {} )
 /*
         const git = new Git( {
             'git': this.#config['git']
@@ -94,11 +100,37 @@ export class EasyMina {
     }
 
 
-    getAccount( { name, groupName } ) {
+    getContracts() {
+        // TODO
+
+        const contracts = this.#environment.getContracts(
+            {}
+        ) 
+
+        return contracts
+    }
+
+
+    getContract( {} ) {
+        // TODO
+
+        const contracts = this.getContracts()
+        return true
+    }
+
+
+    getAccounts() {
         const accounts = this.#environment.getAccounts( { 
             'account': this.#account, 
             'encrypt': this.#encryption 
         } )
+
+        return accounts 
+    }
+
+
+    getAccount( { name, groupName } ) {
+        const accounts = this.getAccounts()
 
         try {
             accounts[ groupName ][ name ]
@@ -138,64 +170,21 @@ export class EasyMina {
 
 
     requestContract() {
-        const result = {
-            'privateKey': {
-                'field': null,
-                'base58': null
-            },
-            'publicKey': {
-                'field': null,
-                'base58': null
-            }
-        }
+        const result = this.#contract.request()
+        return result
+    }
 
-        result['privateKey']['base58'] = PrivateKey
-            .random()
-            .toBase58()
-        result['privateKey']['field'] = PrivateKey.fromBase58( result['privateKey']['base58'] )
 
-        result['publicKey']['field']  = result['privateKey']['field']
-            .toPublicKey()
-
-        result['publicKey']['base58'] = result['publicKey']['field']
-            .toBase58()
+    async saveContract( { name, contractContent } ) {
+        const result = await this.#contract.save( { 
+            name, 
+            contractContent 
+        } )
 
         return result
     }
 
-/*
-    #detectSecret( { filePath=null } ) {
-        let messages = []
-        let comments = []
 
-        const key = this.#config['secret']['key']
-
-        if( filePath !== null ) {
-
-        }
-
-
-        if( Object.hasOwn( process.env, key ) ) {
-            if( process.env[ key ] === undefined || process.env[ key ] === null ) {
-                messages.push( `Environment variable '${key}' is not set as environment variable.` )
-            } else if( typeof process.env[ key ] != 'string' ) {
-                messages.push( `Environment variable '${key}' is not type of string.` )
-            } else {
-                const secret = process.env[ key ]
-                const [ m, c ] = this.#encryption.validateSecret( { secret } ) 
-                messages = [ ...messages, ...m ]
-                comments = [ ...comments, ...c ]
-            }
-        } else {
-            messages.push( `Environment variable '${key}' is not set.` )
-        }
-
-        console.log( 'Mesages', messages )
-        process.exit( 1 )
-        // console.log( 'test', test )
-        return true
-    }
-*/
     startServer() {
         console.log( `Start server for '${this.#state['projectName']}'.` )
         const server = new Server( {
@@ -275,9 +264,7 @@ export class EasyMina {
             'account': this.#account, 
             'encrypt': this.#encryption 
         } )
-        console.log( 'name', nameCmds )
-        console.log( 'av', availableDeyployers )
-        process.exit( 1 )
+
         const missingNames = nameCmds
             .filter( a => {
                 const [ name, accountGroup ] = a

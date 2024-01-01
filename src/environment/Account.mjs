@@ -37,6 +37,7 @@ export class Account {
                 'addressFull': null,
                 'explorer': null,
                 'created': null,
+                'paymentID': null,
                 encrypt
             },
             'body': {
@@ -56,14 +57,12 @@ export class Account {
         struct['header']['explorer'] = this.#config['networks'][ networkName ]['explorer']['wallet']
             .replace( '{{publicKey}}', deployer['publicKey'] )
 
-        // struct['header']['paymentID'] = faucet['status']['paymentID']
+        struct['header']['paymentID'] = faucet['status']['paymentID']
 
         struct['body']['account']['publicKey'] = deployer['publicKey']
         struct['body']['account']['privateKey'] = deployer['privateKey']
 
         struct['disclaimer'] = this.#config['accounts']['disclaimer']
-        console.log( JSON.stringify( struct, null, 4 ) )
-
         return struct
     }
 

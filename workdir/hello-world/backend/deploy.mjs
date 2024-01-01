@@ -3,6 +3,7 @@
 import { Mina, AccountUpdate } from 'o1js'
 import { Square } from '../../../build/hello-world/backend/Square.js'
 import { EasyMina } from '../../../src/EasyMina.mjs'
+import fs from 'fs'
 
 console.log( '- Add Network' )
 const Berkeley = Mina.Network( { 
@@ -16,10 +17,20 @@ easyMina.init()
 
 console.log( '- Import Accounts' )
 const deployer = easyMina.getAccount( {
-    'name': 'pilly',
-    'groupName': 'group-a'
+    'name': 'alice',
+    'groupName': 'new-berkeley'
 } )
+
 const contract = easyMina.requestContract()
+await easyMina.saveContract( {
+    'name': 'deploy',
+    'contractContent': fs.readFileSync( 
+        './../../../build/hello-world/backend/Square.js', 
+        'utf-8' 
+    ) 
+} )
+
+process.exit( 1 )
 
 console.log( '- Compile Class' )
 const zkApp = new Square( contract['publicKey']['field'] )
@@ -58,4 +69,8 @@ const response = await signedMessage.send()
 const txHash = response.hash()
 console.log( `https://berkeley.minaexplorer.com/transaction/${txHash}` )
 
-
+easyMina.saveContract( {
+    'name': 'deploy2',
+    'test': 'TEEE',
+    'contractPath': '../../../build/hello-world/backend/Square.js'
+} )

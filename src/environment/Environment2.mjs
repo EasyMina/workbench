@@ -127,7 +127,7 @@ export class Environment {
             .join( '/' )
   
         const result = fs.readdirSync( path )
-            .reduce( ( abb, file, index ) => {
+            .reduce( ( abb, file ) => {
                 const filePath = `${path}/${file}`
                 if( !fs.statSync( filePath ).isDirectory() ) {
                     if( filePath.endsWith( '.json' ) ) {
@@ -144,23 +144,20 @@ export class Environment {
                                 filePath, 
                                 'name': json['header']['name'],
                                 'explorer': json['header']['explorer'],
+                                'paymentID': json['header']['paymentID'],
                                 'publicKey': json['body']['account']['publicKey'],
-                                'groupName': null
+                                'groupName': json['header']['groupName']
                             }
 
-                            struct['groupName'] = json['header']['groupName']
                             abb.push( struct )
                         }
                     }
                 }
                 return abb
             }, [] )
-            .reduce( ( abb, item, index ) => {
+            .reduce( ( abb, item ) => {
                 const { groupName } = item
-
-                if( !Object.hasOwn( abb, groupName ) ) {
-                    abb[ groupName ] = {}
-                }
+                !Object.hasOwn( abb, groupName ) ? abb[ groupName ] = {} : ''
 
                 let key = item['name']
                 if( Object.hasOwn( abb[ groupName ], item['name'] ) ) {
@@ -170,18 +167,71 @@ export class Environment {
                         .filter( a => a.startsWith( key ) )
                         .length + 1
                 }
+
                 abb[ groupName ][ key ] = {
                     'filePath': item['filePath'],
                     'publicKey': item['publicKey'],
-                    'explorer': item['explorer']
+                    'explorer': item['explorer'],
+                    'paymentID': item['paymentID']
                 }
 
                 return abb
             }, {} )
-
-console.log( 'HERE', JSON.stringify( result, null, 4 ) )
-process.exit( 1 )
         return result
+    }
+
+
+    getProjectNames() {
+        const workdir = this.#config['validate']['folders']['workdir']['name']
+        const projectNames = fs
+            .readdirSync( workdir )
+            .filter( item => {
+                const path = `${workdir}/${item}`
+                return fs.statSync( path ).isDirectory()
+            } )
+            .filter( ( v, i, a ) => a.indexOf( v ) === i )
+
+        return projectNames
+    }
+
+
+    getContracts() {
+        const projectNames = this.getProjectNames()
+
+        const result = projectNames
+            .reduce( ( acc, projectName, index ) => {
+                if( !Object.hasOwn( acc, projectName ) ) {
+                    acc[ projectName ] = {}
+                }
+
+                const projectContractFolder = [
+                    'validate__folders__workdir__name',
+                    projectName,
+                    'validate__folder__workdir__subfolders__subfolders__contracts__name'
+                ]
+                    .map( keyPath => keyPathToValue( { 'data': this.#config, keyPath } ) )
+                    .join( '/' )
+
+                const contracts = fs
+                    .readdirSync( projectContractFolder )
+                    .reduce( ( abb, item ) => {
+                        const path = `${projectContractFolder}/${item}`
+
+                        if( fs.statSync( path ).isFile() ) {
+                            if( item.endsWith( '.js' ) ) {
+                                abb.push( path )
+                            }
+                        }
+
+                        return abb
+                    }, [] )
+
+
+
+                return acc
+            }, {} )
+
+        return true
     }
 
 
