@@ -3,6 +3,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { marked } from 'marked'
 import axios from 'axios'
+import { Markdown } from './Markdown.mjs'
 
 
 import { html, css } from './templates/html.mjs'
@@ -20,6 +21,7 @@ export class Server {
     #environment
     #account
     #encrypt
+    #markdown
     
 
     constructor( { server, validate } ) {
@@ -35,6 +37,7 @@ export class Server {
         this.#environment = environment
         this.#account = account
         this.#encrypt = encrypt
+        this.#markdown = new Markdown()
 
         const [ messages, comments ] = this.#validateState( { 'state': this.#state } )
         printMessages( { messages, comments } )
@@ -268,7 +271,7 @@ export class Server {
     #addRouteOverview() {
         this.#app.get(
             '/',
-            async ( req, res ) => {
+            async( req, res ) => {
                 const accounts = await axios.request( {
                     'method': 'get',
                     'maxBodyLength': Infinity,
@@ -281,7 +284,7 @@ export class Server {
                   .entries( accounts['data']['data'] )
                   .reduce( ( acc, a, index ) => {
                     const [ key, value ] = a
-                    acc += `Group ${key}  \n`
+                    acc += `#### ${key}  \n`
                     acc += Object
                         .entries( value )
                         .reduce( ( abb, b, rindex ) => {
@@ -429,7 +432,10 @@ export class Server {
     #addRouteGetContracts() {
         this.#app.get(
             this.#config['server']['routes']['getContracts']['route'],
-            ( req, res ) => { res.json( { 'data': this.#state['contracts'] } ) }
+            ( req, res ) => { 
+                const contracts = this.#environment.getContracts()
+                res.json( { 'data': contracts } ) 
+            }
         )
 
         return true
@@ -451,18 +457,6 @@ export class Server {
                         .status( 404 )
                         .send( 'File not found' )
                 }
-            }
-        )
-
-        return true
-    }
-
-
-    #addRouteGetSmartContracts() {
-        this.#app.get(
-            this.#config['server']['routes']['getSmartContracts']['route'], 
-            ( req, res ) => { 
-                res.json( { 'data': this.#state['smartContracts'] } ) 
             }
         )
 

@@ -348,6 +348,7 @@ export const config = {
             'include': null,
             'exclude': []
         },
-        'fileName': 'tsconfig.json'
+        'fileName': 'tsconfig.json',
+        'buildFolderName': 'build'
     }
 }

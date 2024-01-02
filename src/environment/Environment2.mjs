@@ -8,8 +8,8 @@ export class Environment {
     #state
 
 
-    constructor( validate ) {
-        this.#config = validate
+    constructor( { validate, secret, typescript } ) {
+        this.#config = { validate, secret, typescript }
         return true
     }
 
@@ -142,11 +142,7 @@ export class Environment {
 
                             const struct = {
                                 filePath, 
-                                'name': json['header']['name'],
-                                'explorer': json['header']['explorer'],
-                                'paymentID': json['header']['paymentID'],
-                                'publicKey': json['body']['account']['publicKey'],
-                                'groupName': json['header']['groupName']
+                                ...json['header']
                             }
 
                             abb.push( struct )
@@ -168,12 +164,7 @@ export class Environment {
                         .length + 1
                 }
 
-                abb[ groupName ][ key ] = {
-                    'filePath': item['filePath'],
-                    'publicKey': item['publicKey'],
-                    'explorer': item['explorer'],
-                    'paymentID': item['paymentID']
-                }
+                abb[ groupName ][ key ] = item
 
                 return abb
             }, {} )
@@ -197,41 +188,59 @@ export class Environment {
 
     getContracts() {
         const projectNames = this.getProjectNames()
-
         const result = projectNames
             .reduce( ( acc, projectName, index ) => {
-                if( !Object.hasOwn( acc, projectName ) ) {
-                    acc[ projectName ] = {}
-                }
-
-                const projectContractFolder = [
-                    'validate__folders__workdir__name',
-                    projectName,
-                    'validate__folder__workdir__subfolders__subfolders__contracts__name'
-                ]
-                    .map( keyPath => keyPathToValue( { 'data': this.#config, keyPath } ) )
-                    .join( '/' )
-
-                const contracts = fs
-                    .readdirSync( projectContractFolder )
-                    .reduce( ( abb, item ) => {
-                        const path = `${projectContractFolder}/${item}`
-
-                        if( fs.statSync( path ).isFile() ) {
-                            if( item.endsWith( '.js' ) ) {
-                                abb.push( path )
-                            }
-                        }
-
-                        return abb
-                    }, [] )
-
-
-
+                acc[ projectName ] = this.#getContractsByProjectName( { 
+                    projectName 
+                } )
                 return acc
             }, {} )
 
-        return true
+        return result
+    }
+
+
+    #getContractsByProjectName( { projectName } ) {
+        const pathContracts = [
+            this.#config['validate']['folders']['workdir']['name'],
+            projectName,
+            this.#config['validate']['folders']['workdir']['subfolders']['subfolders']['contracts']['name']
+        ]
+            .join( '/' )
+
+        let pathBuilds = ''
+        pathBuilds += `${pathContracts}/`
+        pathBuilds += this.#config['typescript']['buildFolderName']
+
+        const cmds = [
+            [ pathContracts, '.ts', 'ts' ],
+            [ pathBuilds, '.js', 'js' ]
+        ]
+
+        const contracts = cmds
+            .reduce( ( acc, a, index ) => {
+                const [ path, search, key ] = a 
+                fs
+                    .readdirSync( path )
+                    .filter( file => {
+                        const stats = fs.statSync( `${path}/${file}` )
+                        return stats.isFile()
+                    } )
+                    .forEach( file => {
+                        if( file.endsWith( search ) ) {
+                            const id = file.split( search )[ 0 ]
+                            if( !Object.hasOwn( acc, id ) ) {
+                                acc[ id ] = {}
+                                cmds.forEach( a => acc[ id ][ a[ 2 ] ] = '' )
+                            }
+
+                            acc[ id ][ key ] =  `${path}/${file}`
+                        }
+                    } )
+                return acc
+            }, {} )
+
+        return contracts
     }
 
 

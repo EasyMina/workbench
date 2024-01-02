@@ -28,7 +28,7 @@ export class Typescript {
                         'outDir',
                         [
                             this.#config['validate']['folders']['workdir']['subfolders']['subfolders']['contracts']['name'],
-                            'build'
+                            this.#config['typescript']['buildFolderName']
                         ]
                     ]
                 ]
@@ -70,7 +70,7 @@ export class Typescript {
             .forEach( a => {
                 const projectName = Object.keys( a )[ 0 ]
                 const { configPath, rootDir, outDir } = a[ projectName ] 
-console.log( 'a', a )
+
                 const p = [
                     this.#config['validate']['folders']['workdir']['name'],
                     projectName,
@@ -82,7 +82,6 @@ console.log( 'a', a )
                     [ p, outDir ].join( '/' ) 
                 ]
                     .forEach( path => {
-console.log( 'path', path )
                         if( !fs.existsSync( path ) ) {
                             fs.mkdirSync( path, { 'recursive': true } )
                         }

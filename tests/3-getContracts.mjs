@@ -4,3 +4,5 @@ const easymina = new EasyMina()
 const result = easymina
     .init()
     .getContracts()
+
+console.log( 'r', result )

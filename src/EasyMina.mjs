@@ -6,7 +6,7 @@ import { Account } from './environment/Account.mjs'
 import { Contract } from './environment/Contract.mjs'
 import { Encryption } from './environment/Encryption.mjs'
 import { Typescript } from './environment/Typescript.mjs'
-import { Server } from './server/Server.mjs'
+import { Server } from './server/Server2.mjs'
 import { ProjectImporter } from './import/ProjectImporter.mjs'
 
 import moment from 'moment'
@@ -23,6 +23,7 @@ export class EasyMina {
     #projectImporter
     #contract
 
+
     constructor() {
         this.#config = config
 
@@ -38,7 +39,6 @@ export class EasyMina {
         this.#environment = this.#addEnvironment()
         this.#encryption = new Encryption()
         this.#state = this.#addState( { networkNames, encryption } )
-
         this.#encryption.setSecret( { 'secret': this.#state['secret'] } )
 
         const typescript = new Typescript( {
@@ -101,21 +101,15 @@ export class EasyMina {
 
 
     getContracts() {
-        // TODO
-
-        const contracts = this.#environment.getContracts(
-            {}
-        ) 
-
-        return contracts
+        return this.#environment
+            .getContracts() 
     }
 
 
-    getContract( {} ) {
-        // TODO
-
+    getContract( { name, projectName } ) {
         const contracts = this.getContracts()
-        return true
+        const result = contracts[ projectName ][ name ]
+        return result
     }
 
 
@@ -252,7 +246,8 @@ export class EasyMina {
     #addEnvironment() {
         const environment = new Environment( { 
             'validate': this.#config['validate'],
-            'secret': this.#config['secret']
+            'secret': this.#config['secret'],
+            'typescript': this.#config['typescript']
         } ) 
 
         return environment
