@@ -1,7 +1,7 @@
 
 
 import { Mina, AccountUpdate } from 'o1js'
-import { Square } from '../../../build/hello-world/backend/Square.js'
+import { Square } from './build/Square.js'
 import { EasyMina } from '../../../src/EasyMina.mjs'
 import fs from 'fs'
 
@@ -21,13 +21,9 @@ const deployer = easyMina.getAccount( {
     'groupName': 'new-berkeley'
 } )
 
-const contract = easyMina.requestContract()
-await easyMina.saveContract( {
-    'name': 'deploy',
-    'contractContent': fs.readFileSync( 
-        './../../../build/hello-world/backend/Square.js', 
-        'utf-8' 
-    ) 
+const contract = easyMina.requestContract( {
+        'name': 'square-example',
+        'source': fs.readFileSync( './build/Square.js', 'utf-8' )
 } )
 
 process.exit( 1 )
@@ -69,8 +65,4 @@ const response = await signedMessage.send()
 const txHash = response.hash()
 console.log( `https://berkeley.minaexplorer.com/transaction/${txHash}` )
 
-easyMina.saveContract( {
-    'name': 'deploy2',
-    'test': 'TEEE',
-    'contractPath': '../../../build/hello-world/backend/Square.js'
-} )
+easyMina.saveContract()
