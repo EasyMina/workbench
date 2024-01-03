@@ -10,9 +10,7 @@ const frontend = `
 `
 
 const overview = `
-# EasyMina
-
-**ProjectName**: {{projectName}}
+# Cheatsheet
 
 <details open>
 <summary>

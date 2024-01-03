@@ -200,6 +200,78 @@ export class Environment {
     }
 
 
+    getScripts() {
+        const cmdGroups = {
+            'backend': [
+                [ [ /\.js$/, /\.mjs$/ ], 'source' ],
+                [ [ /\.md$/ ], 'md' ]
+            ],
+            'frontend': [
+                [ [ /\.html$/ ], 'source' ],
+                [ [ /\.md$/ ], 'md' ]
+            ]
+        }
+
+        const result = this.getProjectNames()
+            .reduce( ( acc, projectName, index ) => {
+                acc[ projectName ] = Object
+                    .entries( cmdGroups )
+                    .reduce( ( abb, b, rindex ) => {
+                        const [ key, cmds ] = b
+                        abb[ key ] = this.#getScriptsByProjectName( {
+                            projectName,
+                            cmds,
+                            key
+                        } )
+                        return abb
+                    }, {} )
+
+                return acc
+            }, {} )
+
+        return result
+    }
+
+
+    #getScriptsByProjectName( { projectName, cmds, key } ) {
+        const path = [
+            this.#config['validate']['folders']['workdir']['name'],
+            projectName,
+            this.#config['validate']['folders']['workdir']['subfolders']['subfolders'][ key ]['name']
+        ]
+            .join( '/' )
+
+        const result = cmds
+            .reduce( ( acc, a, index ) => {
+                const [ search, key ] = a 
+                fs
+                    .readdirSync( path )
+                    .filter( file => {
+                        const stats = fs.statSync( `${path}/${file}` )
+                        return stats.isFile()
+                    } )
+                    .forEach( file => {
+                        const test = search
+                            .map( a => a.test( file ) )
+                            .some( a => a )
+
+                        if( test ) {
+                            const id = file.split( '.' )[ 0 ]
+                            if( !Object.hasOwn( acc, id ) ) {
+                                acc[ id ] = {}
+                                cmds.forEach( a => acc[ id ][ a[ 1 ] ] = '' )
+                            }
+
+                            acc[ id ][ key ] =  `${path}/${file}`
+                        }
+                    } )
+                return acc
+            }, {} )
+
+        return result
+    }
+
+
     #getContractsByProjectName( { projectName } ) {
         const pathContracts = [
             this.#config['validate']['folders']['workdir']['name'],

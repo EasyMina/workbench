@@ -5,7 +5,6 @@ import { marked } from 'marked'
 import axios from 'axios'
 import { Markdown } from './Markdown.mjs'
 
-
 import { html, css } from './templates/html.mjs'
 import { frontend, overview } from './templates/index.mjs'
 
@@ -170,28 +169,27 @@ export class Server {
 
 
     #addRouteIndex() {
-        const accounts = this.#environment.getAccounts( { 
-            'account': this.#account, 
-            'encrypt': this.#encrypt 
-        } )
-
-        const contracts = this.#environment
-            .getContracts()
-
-        const projects = ''
-
-
         const accountTables = this.#markdown
-            .createAccountGroupTables( { accounts } )   
+            .createAccountGroupTables( { 
+                'environment': this.#environment,
+                'account': this.#account, 
+                'encrypt': this.#encrypt
+            } )   
             
-        const projectContracts = this.#markdown
-            .createProjectGroupTables( { contracts } )
+        const projectTables = this.#markdown
+            .createProjects( { 
+                'environment': this.#environment
+             } )
+        
+        const scripts = this.#environment
+            .getScripts()
 
         this.#app.get(
             '/',
             ( req, res ) => {
                 const _insert = overview
                     .replace( '{{accountTables}}', accountTables )
+                    .replace( '{{projects}}', projectTables )
                 const html = this.#container
                     .replace( '{{markdown}}', marked( _insert ) )
 
