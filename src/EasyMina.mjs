@@ -9,6 +9,9 @@ import { Typescript } from './environment/Typescript.mjs'
 import { Server } from './server/Server2.mjs'
 import { ProjectImporter } from './import/ProjectImporter.mjs'
 
+import path from 'path'
+
+
 import moment from 'moment'
 import fs from 'fs'
 import { PrivateKey } from 'o1js'
@@ -54,7 +57,11 @@ export class EasyMina {
             'validate': this.#config['validate']
         } )
 
-        this.#contract = new Contract( {} )
+        this.#contract = new Contract( {
+            'validate': this.#config['validate'],
+            'networks': this.#config['networks'],
+            'contracts': this.#config['contracts']
+        } )
 /*
         const git = new Git( {
             'git': this.#config['git']
@@ -84,8 +91,8 @@ export class EasyMina {
     }
 
 
-    async newPersonas( { names=[ 'this', 'that' ], networkName='berkeley' } ) {
-        const [ messages, comments ] = this.#validateState( { names, networkName } )
+    async newPersonas( { names=[ 'this', 'that' ], networkName='berkeley', pattern=true } ) {
+        const [ messages, comments ] = this.#validateState( { names, networkName, pattern } )
         printMessages( { messages, comments } )
 
         const { accountGroup, projectName } = this.#state
@@ -94,7 +101,7 @@ export class EasyMina {
 
         const nameCmds = names
             .map( name => [ name, accountGroup ] )
-        await this.#createMissingAccounts( { nameCmds, accountGroup, networkName } )
+        await this.#createMissingAccounts( { nameCmds, accountGroup, networkName, pattern } )
 
         return true
     }
@@ -108,6 +115,9 @@ export class EasyMina {
 
     getContract( { name, projectName } ) {
         const contracts = this.getContracts()
+        const [ messages, comments ] = this.#validateGetContracts( { name, projectName, contracts } )
+        printMessages( { messages, comments } )
+
         const result = contracts[ projectName ][ name ]
         return result
     }
@@ -125,6 +135,8 @@ export class EasyMina {
 
     getAccount( { name, groupName } ) {
         const accounts = this.getAccounts()
+        const [ messages, comments ] = this.#validateGetAccount( { name, groupName, accounts } )
+        printMessages( { messages, comments } )
 
         try {
             accounts[ groupName ][ name ]
@@ -134,10 +146,8 @@ export class EasyMina {
         }
 
         const select = accounts[ groupName ][ name ]
-        let json = JSON.parse( fs.readFileSync( select['filePath'], 'utf-8' ) )
-        if( json['header']['encrypt'] ) {
-            json['body'] = JSON.parse( this.#encryption.decrypt( { 'hash': json['body'] } ) )
-        }
+        let credential = JSON.parse( fs.readFileSync( select['filePath'], 'utf-8' ) )
+        credential = this.#encryption.decryptCredential( { credential } )
 
         const result = {
             'privateKey': {
@@ -150,30 +160,61 @@ export class EasyMina {
             }
         }
 
-        result['privateKey']['base58'] = json['body']['account']['privateKey']
+        result['privateKey']['base58'] = credential['body']['account']['privateKey']
         result['privateKey']['field'] = PrivateKey.fromBase58( result['privateKey']['base58'] )
 
-        result['publicKey']['field']  = result['privateKey']['field']
-            .toPublicKey()
+        result['publicKey']['field']  = result['privateKey']['field'].toPublicKey()
 
-        result['publicKey']['base58'] = result['publicKey']['field']
-            .toBase58()
+        result['publicKey']['base58'] = result['publicKey']['field'].toBase58()
 
         return result
     }
 
 
-    requestContract() {
-        const result = this.#contract.request()
-        return result
-    }
+    async requestContract( { name, networkName, encrypt=true, sourcePath=null } ) {
+        const contractAbsolutePath = path.resolve(
+            path.dirname( process.argv[ 1 ] ), 
+            `${sourcePath}`
+        )
 
+        const [ messages, comments ] = this.#contract
+            .validateRequest( { 
+                name, 
+                contractAbsolutePath, 
+                networkName, 
+                encrypt 
+            } )
+        printMessages( { messages, comments } )
 
-    async saveContract( { name, contractContent } ) {
-        const result = await this.#contract.save( { 
+        const result = await this.#contract.request( { 
             name, 
-            contractContent 
+            contractAbsolutePath,
+            networkName,
+            encrypt,
+            'environment': this.#environment
         } )
+
+        return result['body']
+    }
+
+
+    async saveContract() {
+        const result = await this.#contract.prepareSave( { 
+            'encryption': this.#encryption 
+        } )
+
+        let path = [
+            this.#config['validate']['folders']['credentials']['name'],
+            this.#config['validate']['folders']['credentials']['subfolders']['contracts']['name'],
+            `${result['header']['name']}--${moment().unix()}.json`
+        ]
+            .join( '/' )
+ 
+        fs.writeFileSync( 
+            path, 
+            JSON.stringify( result, null, 4 ), 
+            'utf-8'
+        )
 
         return result
     }
@@ -254,7 +295,7 @@ export class EasyMina {
     }
 
 
-    async #createMissingAccounts( { nameCmds, networkName } ) {
+    async #createMissingAccounts( { nameCmds, networkName, pattern } ) {
         const availableDeyployers = this.#environment.getAccounts( { 
             'account': this.#account, 
             'encrypt': this.#encryption 
@@ -280,7 +321,7 @@ export class EasyMina {
             const deployer = await this.#createAccount( {
                 name,
                 groupName,
-                'pattern': true,
+                pattern,
                 networkName,
                 'secret': this.#state['secret'],
                 'encrypt': this.#state['encryption'],
@@ -309,15 +350,15 @@ export class EasyMina {
         let deployer = await account
             .createDeployer( { name, groupName, pattern, networkName, encrypt } )
 
-        if( encrypt ) {
-            deployer = this.#encryption.encryptDeployer( { deployer } )
-        }
+        deployer = this.#encryption.encryptCredential( { 
+            'credential': deployer
+        } )
         
         return deployer
     }
 
 
-    #validateState( { accountGroup=null, projectName=null, names=null, networkName=null } ) {
+    #validateState( { accountGroup=null, projectName=null, names=null, networkName=null, pattern=null } ) {
         const messages = []
         const comments = []
  
@@ -336,7 +377,6 @@ export class EasyMina {
             } )
 
         if( names === null ) {
-            
         } else if( !Array.isArray( names ) ) {
             messages.push( `Key 'names' is not type of array.` )
         } else if( names.length === 0 ) {
@@ -358,6 +398,64 @@ export class EasyMina {
             messages.push( `Key 'networkName' is not type of string.` )
         } else if( !this.#config['networks']['supported'].includes( networkName ) ) {
             messages.push( `Key 'networkName' with the value '${networkName}' is not a valid input. Supported networks are ${this.#config['networks']['supported'].join( ',' )}.` )
+        }
+
+        if( pattern === null ) {
+        } else if( typeof pattern !== 'boolean' ) {
+            messages.push( `Key 'pattern' is not type of 'boolean'.` )
+        }
+
+        return [ messages, comments ]
+    }
+
+
+    #validateGetContracts( { name, projectName, contracts } ) {
+        const messages = []
+        const comments = []
+
+        if( typeof name !== 'string' ) {
+            messages.push( `Key 'name' is not tyoe of string.` )
+        }
+
+        if( typeof projectName !== 'string' ) {
+            messages.push( `Key 'projectName' is not type of string.` )
+        } else if( !Object.keys( contracts ).includes( projectName ) ) {
+            messages.push( `Key 'projectName' with the value '${projectName}' is not valid. Choose from ${Object.keys( contracts ).join( ', ' )} instead.` )
+        }
+
+        if( messages.length !== 0 ) {
+            return [ messages, comments ]
+        }
+
+        const keys = Object.keys( contracts[ projectName ] )
+        if( !keys.includes( name ) ) {
+            messages.push( `Key 'name' with the value '${name}' is not valid. Choose from ${keys.join( ', ' )} instead.` )
+        }
+
+        return [ messages, comments ]
+    }
+
+
+    #validateGetAccount( { name, groupName, accounts } ) {
+        const messages = []
+        const comments = []
+
+        if( typeof name !== 'string' ) {
+            messages.push( `Key 'name' is not type of 'string'.` )
+        } 
+
+        if( typeof groupName !== 'string' ) {
+            messages.push( `Key 'groupName' is not type of 'string'.` )
+        } else if( !Object.keys( accounts ).includes( groupName ) ) {
+            messages.push( `Key 'groupName' with the value '${groupName}' is not valid. Choose from ${Object.keys( accounts ).join( ', ' )} instead.` )
+        }
+
+        if( messages.length !== 0 ) {
+            return [ messages, comments ]
+        }
+
+        if( !Object.keys( accounts[ groupName ] ).includes( name ) ) {
+            messages.push( `Key 'name' with the value '${name}' is not valid. Choose from ${Object.keys( accounts[ groupName ] )} instead.` )
         }
 
         return [ messages, comments ]

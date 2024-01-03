@@ -251,7 +251,11 @@ export const config = {
             }
         }
     },
+    'contracts': {
+        'disclaimer': 'Do not share this file with anyone.'
+    },
     'accounts': {
+        'disclaimer': 'Do not share this file with anyone.', 
         'maxTries': 10000,
         'personas': {
             'alice': {

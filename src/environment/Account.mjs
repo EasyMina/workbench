@@ -209,10 +209,9 @@ export class Account {
         }
 
         if( messages.length === 0 ) {
-            if( json['header']['encrypt'] ) {
-                // console.log( 'before', json['body'] )
-                json['body'] = JSON.parse( encrypt.decrypt( { 'hash': json['body'] } ) )
-            }
+            json = encrypt.decryptCredential( {
+                'credential': json
+            } )
 
             const tests = this.#config['validate']['files']['account']['keys']
                 .map( a => {

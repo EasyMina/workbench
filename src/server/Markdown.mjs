@@ -24,7 +24,6 @@ export class Markdown {
             .entries( accounts )
             .reduce( ( acc, a, index ) => {
                 const [ groupName, accountGroup ] = a
-
                 acc += `### ${groupName}  \n`
                 acc += "\n"
                 acc += this.#createAccountGroupTable( {
@@ -42,7 +41,6 @@ export class Markdown {
     }
 
 
-
     createProjects( { environment } ) {
         const contractGroup = environment.getContracts()
         const scripts = environment.getScripts()
@@ -54,8 +52,7 @@ export class Markdown {
             .entries( contractGroup )
             .reduce( ( acc, a, index ) => {
                 const [ projectName, contracts ] = a
-
-                acc += `<details open><summary>  \n`
+                acc += `<details close><summary>  \n`
                 acc += `  \n`
                 acc += `#### ${projectName}  \n`
                 acc += `</summary>  \n`
@@ -76,15 +73,28 @@ export class Markdown {
 
     #createProjectBackendTable( { scripts, projectName, key } ) {
         let strs = ''
-        strs += `#### ${key}  \n`
-        strs += `  \n`
+
+        const str = key
+            .split( '' )
+            .map( ( char, index ) => {
+                if( index === 0 ) {
+                    return char.charAt( 0 ).toUpperCase()
+                } else {
+                    return char.charAt( 0 ).toLowerCase()
+                }
+            } )
+            .join( '' )
+
+
         
         const columns = [ 'Name', 'Source', 'Readme' ]
-        strs += Object
+        const table = Object
             .entries( scripts[ projectName ][ key ] )
             .reduce( ( acc, a, index ) => {
                 const [ key, value ] = a
                 if( index === 0 ) {
+                    strs += `**${str}**  \n`
+                    strs += `  \n`
                     acc += `| ${columns.join( ' | ' )} |  \n`
                     acc += `| ${columns.map( a => `:--` ).join( ' | ' )} |  \n`
                 }
@@ -96,6 +106,8 @@ export class Markdown {
 
                 return acc
             }, '')
+
+        strs += table
 
         return strs
     }
@@ -110,7 +122,7 @@ export class Markdown {
             .reduce( ( acc, a, index ) => {
                 const [ key, value ] = a 
                 if( index === 0 ) {
-                    strs += `Contracts  \n`
+                    strs += `**Contracts**  \n`
                     strs += `  \n`
                     acc += `| ${columns.join( ' | ' )} |  \n`
                     acc += `| ${columns.map( a => `:--` ).join( ` | ` )} |  \n`

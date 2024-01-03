@@ -1,14 +1,15 @@
 
 
 import { Mina, AccountUpdate } from 'o1js'
-import { Square } from './build/Square.js'
+import { Square } from './../contracts/build/Square.js'
 import { EasyMina } from '../../../src/EasyMina.mjs'
-import fs from 'fs'
+
 
 console.log( '- Add Network' )
-const Berkeley = Mina.Network( { 
-    'mina': 'https://berkeley.minascan.io/graphql' 
-} )
+const Berkeley = Mina.Network( 
+    'https://proxy.berkeley.minaexplorer.com/graphql' 
+)
+
 Mina.setActiveInstance( Berkeley )
  
 console.log( '- Add EasyMina' )
@@ -17,16 +18,20 @@ easyMina.init()
 
 console.log( '- Import Accounts' )
 const deployer = easyMina.getAccount( {
-    'name': 'alice',
+    'name': 'bob',
     'groupName': 'new-berkeley'
 } )
 
-const contract = easyMina.requestContract( {
+console.log( 'Deployer >>>', deployer)
+
+const contract = await easyMina.requestContract( {
         'name': 'square-example',
-        'source': fs.readFileSync( './build/Square.js', 'utf-8' )
+        'sourcePath': './../contracts/build/Square.js',
+        'networkName': 'berkeley'
 } )
 
-process.exit( 1 )
+console.log( 'Contract >>>', contract )
+// process.exit( 1 ) 
 
 console.log( '- Compile Class' )
 const zkApp = new Square( contract['publicKey']['field'] )

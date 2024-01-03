@@ -135,14 +135,13 @@ export class Environment {
                             .validateDeployer( { filePath, encrypt } )
                         if( messages.length === 0 ) {
                             const tmp = fs.readFileSync( filePath, 'utf-8' )
-                            const json = JSON.parse( tmp )
-                            if( json['header']['encrypt'] ) {
-                                json['body'] = JSON.parse( encrypt.decrypt( { 'hash': json['body'] } ) )
-                            }
+                            const credential = encrypt.decryptCredential( {
+                                'credential': JSON.parse( tmp )
+                            } )
 
                             const struct = {
                                 filePath, 
-                                ...json['header']
+                                ...credential['header']
                             }
 
                             abb.push( struct )
@@ -228,6 +227,27 @@ export class Environment {
 
                 return acc
             }, {} )
+
+        return result
+    }
+
+
+    async getScriptMethods( { contractAbsolutePath } ) {
+        let result = {}
+        try {
+            const ContractClass = await import( contractAbsolutePath )
+            result = Object
+                .entries( ContractClass )
+                .reduce( ( acc, a, index ) => {
+                    const [ key, value ] = a
+                    if( Object.hasOwn( value, '_methods') ) {
+                        acc[ key ] = value['_methods']
+                            .map( a => a['methodName'] )
+                    }
+                    return acc
+                }, {} )
+        } catch( e ) {
+        }
 
         return result
     }

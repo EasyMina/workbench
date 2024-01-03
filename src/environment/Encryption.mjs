@@ -113,27 +113,33 @@ export class Encryption {
     }
 
 
-    encryptDeployer( { deployer } ) {
-        const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
+    encryptCredential( { credential } ) {
+        const [ messages, comments ] = this.validateSecret( { 
+            'secret': this.#secret['string'] 
+        } )
         printMessages( { messages, comments } )
 
-        deployer['body'] = this.encrypt( { 
-            'text': JSON.stringify( deployer['body'] )
-        } )
+        if( credential['header']['encrypt'] ) {
+            credential['body'] = this.encrypt( { 
+                'text': JSON.stringify( credential['body'] )
+            } )
+        }
 
-        return deployer
+        return credential
     }
 
 
-    decryptDeployer( { deployer } ) {
+    decryptCredential( { credential } ) {
         const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
         printMessages( { messages, comments } )
 
-        deployer['body'] = JSON.parse( 
-            this.decrypt( { 'hash': deployer['body'] } ) 
-        ) 
+        if( credential['header']['encrypt'] ) {
+            credential['body'] = JSON.parse( 
+                this.decrypt( { 'hash': credential['body'] } ) 
+            ) 
+        }
  
-        return deployer
+        return credential
     }
 
 /*
