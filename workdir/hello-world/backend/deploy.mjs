@@ -18,20 +18,16 @@ easyMina.init()
 
 console.log( '- Import Accounts' )
 const deployer = easyMina.getAccount( {
-    'name': 'bob',
+    'name': 'cetris',
     'groupName': 'new-berkeley'
 } )
-
-console.log( 'Deployer >>>', deployer)
 
 const contract = await easyMina.requestContract( {
         'name': 'square-example',
         'sourcePath': './../contracts/build/Square.js',
-        'networkName': 'berkeley'
+        'networkName': 'berkeley',
+        deployer
 } )
-
-console.log( 'Contract >>>', contract )
-// process.exit( 1 ) 
 
 console.log( '- Compile Class' )
 const zkApp = new Square( contract['publicKey']['field'] )
@@ -70,4 +66,4 @@ const response = await signedMessage.send()
 const txHash = response.hash()
 console.log( `https://berkeley.minaexplorer.com/transaction/${txHash}` )
 
-easyMina.saveContract()
+easyMina.saveContract( { response } )

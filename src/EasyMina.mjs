@@ -150,6 +150,7 @@ export class EasyMina {
         credential = this.#encryption.decryptCredential( { credential } )
 
         const result = {
+            'filePath': select['filePath'],
             'privateKey': {
                 'field': null,
                 'base58': null
@@ -171,7 +172,7 @@ export class EasyMina {
     }
 
 
-    async requestContract( { name, networkName, encrypt=true, sourcePath=null } ) {
+    async requestContract( { name, networkName, deployer, encrypt=true, sourcePath=null } ) {
         const contractAbsolutePath = path.resolve(
             path.dirname( process.argv[ 1 ] ), 
             `${sourcePath}`
@@ -182,6 +183,7 @@ export class EasyMina {
                 name, 
                 contractAbsolutePath, 
                 networkName, 
+                deployer,
                 encrypt 
             } )
         printMessages( { messages, comments } )
@@ -190,6 +192,7 @@ export class EasyMina {
             name, 
             contractAbsolutePath,
             networkName,
+            deployer,
             encrypt,
             'environment': this.#environment
         } )
@@ -198,10 +201,15 @@ export class EasyMina {
     }
 
 
-    async saveContract() {
+    async saveContract( { response }) {
         const result = await this.#contract.prepareSave( { 
             'encryption': this.#encryption 
         } )
+
+        const networkName = result['header']['networkName']
+        result['header']['txHash'] = response.hash()
+        result['header']['txHashExplorer'] = this.#config['networks'][ networkName ]['explorer']['transaction']
+            .replace( '{{txHash}}', result['header']['txHash'] )
 
         let path = [
             this.#config['validate']['folders']['credentials']['name'],
@@ -244,6 +252,12 @@ export class EasyMina {
         await this.#projectImporter.addProject( { projectPath } )
 
         console.log( 'A' )
+        return true
+    }
+
+
+    async exportProject( { projectName } ) {
+        // TODO
         return true
     }
 

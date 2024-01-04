@@ -20,7 +20,7 @@ export class Contract {
     }
 
 
-    async request( { name, contractAbsolutePath, networkName, encrypt, environment } ) {
+    async request( { name, contractAbsolutePath, networkName, deployer, encrypt, environment } ) {
         const [ messages, comments ] = this.#validateState( { 'state': this.#state } )
         printMessages( { messages, comments } )
 
@@ -34,6 +34,8 @@ export class Contract {
                 'addressFull': null,
                 'explorer': null,
                 'created': null,
+                'deployer': null,
+                'source': null,
                 encrypt
             },
             'body': {
@@ -52,15 +54,15 @@ export class Contract {
         result['body']['privateKey']['base58'] = PrivateKey
             .random()
             .toBase58()
-
-        result['body']['privateKey']['field'] = PrivateKey.fromBase58( result['body']['privateKey']['base58'] )
-
+        result['body']['privateKey']['field'] = PrivateKey
+            .fromBase58( result['body']['privateKey']['base58'] )
         result['body']['publicKey']['field']  = result['body']['privateKey']['field']
             .toPublicKey()
-
         result['body']['publicKey']['base58'] = result['body']['publicKey']['field']
             .toBase58()
 
+        result['header']['source'] = fs.readFileSync( contractAbsolutePath, 'utf-8' )
+        result['header']['deployer'] = deployer['filePath']
         result['header']['projectName'] = environment
             .getProjectNames()
             .reduce( ( acc, projectName, index ) => {
@@ -70,19 +72,14 @@ export class Contract {
                 result !== undefined ? acc = result : ''
                 return acc
             }, '' )
-
         result['header']['methods'] = await environment
             .getScriptMethods( { contractAbsolutePath } )
-
         result['header']['created'] = moment().format( 'YYYY-MM-DD hh:mm:ss A')
 
         const publicKey = result['body']['publicKey']['base58']
         result['header']['addressShort'] = 
             `${publicKey.slice( 0, 8 )}...${publicKey.slice( -4 )}`
         result['header']['addressFull'] = publicKey
-
-        console.log( 'networkName', networkName )
-
         result['header']['explorer'] = this.#config['networks'][ networkName ]['explorer']['wallet']
             .replace( '{{publicKey}}', publicKey )
 
@@ -124,7 +121,7 @@ export class Contract {
     }
 
 
-    validateRequest( { name, contractAbsolutePath, networkName, encrypt } ) {
+    validateRequest( { name, contractAbsolutePath, networkName, deployer, encrypt } ) {
         const messages = []
         const comments = []
 
@@ -152,6 +149,10 @@ export class Contract {
 
         if( typeof encrypt !== 'boolean' ) {
             messages.push( `Key 'encrypt' is not type of 'boolean'. ` )
+        }
+
+        if( typeof deployer !== 'object' ) {
+            messages.push( `Key 'deployer' is not type of 'object'.` )
         }
 
         return [ messages, comments ]
