@@ -116,14 +116,14 @@ export class Environment {
                 path += subfolder
                 struct['exists'] = fs.existsSync( path )
                 acc[ subfolder ] = struct
-console.log( 'struct', struct )
+
                 struct['groups'] = fs.readdirSync( path )
                     .reduce( ( abb, file, index ) => {
                         const filePath = `${path}/${file}`
                         if( !fs.statSync( filePath ).isDirectory() ) {
                             if( filePath.endsWith( '.json' ) ) {
                                 const validate = account
-                                    .validateDeployer( { filePath } )
+                                    .validate( { filePath } )
                                 if( validate[ 0 ].length === 0 ) {
                                     const tmp = fs.readFileSync( filePath, 'utf-8' )
                                     const json = JSON.parse( tmp )

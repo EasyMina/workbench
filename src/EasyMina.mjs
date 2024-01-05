@@ -8,9 +8,9 @@ import { Encryption } from './environment/Encryption.mjs'
 import { Typescript } from './environment/Typescript.mjs'
 import { Server } from './server/Server2.mjs'
 import { ProjectImporter } from './import/ProjectImporter.mjs'
+import { MinaData } from 'minadata'
 
 import path from 'path'
-
 
 import moment from 'moment'
 import fs from 'fs'
@@ -25,6 +25,7 @@ export class EasyMina {
     #encryption
     #projectImporter
     #contract
+    #minaData
 
 
     constructor() {
@@ -62,6 +63,10 @@ export class EasyMina {
             'networks': this.#config['networks'],
             'contracts': this.#config['contracts']
         } )
+
+        this.#minaData = new MinaData()
+        this.#minaData.init( {} )
+
 /*
         const git = new Git( {
             'git': this.#config['git']
@@ -69,18 +74,19 @@ export class EasyMina {
         git.addGitIgnore()
 
 */
+
         return this
     }
 
-
-    setAccountGroup( accountGroup ) {
-        const [ messages, comments ] = this.#validateState( { accountGroup } )
+/*
+    setAccountGroup( groupName ) {
+        const [ messages, comments ] = this.#validateState( { groupName } )
         printMessages( { messages, comments } )
 
-        this.#state['accountGroup'] = accountGroup
+        this.#state['groupName'] = groupName
         return this
     }
-
+*/
 
     setProjectName( projectName ) {
         const [ messages, comments ] = this.#validateState( { projectName } )
@@ -91,35 +97,94 @@ export class EasyMina {
     }
 
 
-    async newPersonas( { names=[ 'this', 'that' ], networkName='berkeley', pattern=true } ) {
-        const [ messages, comments ] = this.#validateState( { names, networkName, pattern } )
+    async createAccounts( { names=[], networkName='berkeley', groupName, pattern=true } ) {
+        const [ messages, comments ] = this.#validateState( { names, networkName, pattern, groupName } )
         printMessages( { messages, comments } )
 
-        const { accountGroup, projectName } = this.#state
-        this.#environment.init( { accountGroup, projectName } )
+        const { groupName, projectName } = this.#state
+        this.#environment.init( { groupName, projectName } )
         this.#environment.updateFolderStructure()
 
-        const nameCmds = names
-            .map( name => [ name, accountGroup ] )
-        await this.#createMissingAccounts( { nameCmds, accountGroup, networkName, pattern } )
+        const missingNames = this.#getMissingAccounts( { names, groupName, networkName, pattern } )
+        
+        for( let i = 0; i < missingNames.length; i++ ) {
+            const [ name, groupName ] = missingNames[ i ]
+            console.log( 'Create', name )
+            const deployer = await this.createAccount( {
+                name,
+                groupName,
+                pattern,
+                networkName
+            } )
+
+            let path = [
+                this.#config['validate']['folders']['credentials']['name'],
+                this.#config['validate']['folders']['credentials']['subfolders']['accounts']['name'],
+                `${name}--${moment().unix()}.json`
+            ]
+                .join( '/' )
+     
+            fs.writeFileSync( 
+                path, 
+                JSON.stringify( deployer, null, 4 ), 
+                'utf-8'
+            )
+        }
 
         return true
     }
 
 
-    getContracts() {
-        return this.#environment
-            .getContracts() 
+    async createAccount( { name, groupName, pattern, networkName, /*secret, encrypt, account*/ } ) {
+        const secret = this.#state['secret']
+        const encrypt = this.#state['encryption']
+        const account = this.#account
+
+        let deployer = await account
+            .createDeployer( { name, groupName, pattern, networkName, encrypt } )
+
+        deployer = this.#encryption.encryptCredential( { 
+            'credential': deployer
+        } )
+        
+        return deployer
     }
 
 
-    getContract( { name, projectName } ) {
-        const contracts = this.getContracts()
+    getDevelopmentContracts() {
+        return this.#environment
+            .getDevelopmentContracts()
+    }
+
+
+    getDevelopmentContract( { name, projectName } ) {
+        const contracts = this.getDevelopmentContracts()
+        // console.log( 'c', contracts )
         const [ messages, comments ] = this.#validateGetContracts( { name, projectName, contracts } )
         printMessages( { messages, comments } )
 
         const result = contracts[ projectName ][ name ]
         return result
+    }
+
+
+    getDeployedContracts() {
+        const contracts = this.#environment
+            .getDeployedContracts( {
+                'contract': this.#contract, 
+                'encrypt': this.#encryption 
+            } )
+
+        return contracts
+    }
+
+
+    getDeployedContract( { name, projectName } ) {
+        const contracts = this.getDepoloyedContracts()
+        const deployedContracts = this.getDeployedContracts()
+        console.log( '>', deployedContracts )
+
+        return true
     }
 
 
@@ -133,19 +198,30 @@ export class EasyMina {
     }
 
 
-    getAccount( { name, groupName } ) {
+    async getAccount( { name, groupName } ) {
         const accounts = this.getAccounts()
         const [ messages, comments ] = this.#validateGetAccount( { name, groupName, accounts } )
         printMessages( { messages, comments } )
 
-        try {
-            accounts[ groupName ][ name ]
-        } catch( e ) {
-            console.log( 'account not found.' )
+        const select = accounts[ groupName ][ name ]
+        const accountStatus = await this.#minaData.getData( { 
+            'preset': 'accountBalance', 
+            'userVars': {
+                'publicKey': select['addressFull']
+            },
+            'network': 'berkeley'
+        } )
+
+        console.log( '>>>', JSON.stringify( accountStatus, null, 4 ))
+
+        if( accountStatus['data']['account'] === null ) {
+            console.log( `Account is unknown. Pease check the status: ${select['faucetTxHashExplorer']}.` )
             process.exit( 1 )
+        } else {
+            accountStatus['data']['account']['total']
         }
 
-        const select = accounts[ groupName ][ name ]
+
         let credential = JSON.parse( fs.readFileSync( select['filePath'], 'utf-8' ) )
         credential = this.#encryption.decryptCredential( { credential } )
 
@@ -275,7 +351,7 @@ export class EasyMina {
 */
 
         const state = {
-            'accountGroup': null,
+            'groupName': null,
             'projectName': null,
             'names': null,
             secret,
@@ -309,17 +385,16 @@ export class EasyMina {
     }
 
 
-    async #createMissingAccounts( { nameCmds, networkName, pattern } ) {
+    #getMissingAccounts( { names, groupName } ) {
         const availableDeyployers = this.#environment.getAccounts( { 
             'account': this.#account, 
             'encrypt': this.#encryption 
         } )
 
-        const missingNames = nameCmds
-            .filter( a => {
-                const [ name, accountGroup ] = a
-                if( Object.hasOwn( availableDeyployers, accountGroup ) ) {
-                    if( Object.hasOwn( availableDeyployers[ accountGroup ], name ) ) {
+        const missingNames = names
+            .filter( name => {
+                if( Object.hasOwn( availableDeyployers, groupName ) ) {
+                    if( Object.hasOwn( availableDeyployers[ groupName ], name ) ) {
                         return false
                     } else {
                         return true
@@ -329,55 +404,19 @@ export class EasyMina {
                 }
             } )
 
-        for( let i = 0; i < missingNames.length; i++ ) {
-            const [ name, groupName ] = missingNames[ i ]
-            console.log( 'Create', name )
-            const deployer = await this.#createAccount( {
-                name,
-                groupName,
-                pattern,
-                networkName,
-                'secret': this.#state['secret'],
-                'encrypt': this.#state['encryption'],
-                'account': this.#account
-            } )
-
-            let path = [
-                this.#config['validate']['folders']['credentials']['name'],
-                this.#config['validate']['folders']['credentials']['subfolders']['accounts']['name'],
-                `${name}--${moment().unix()}.json`
-            ]
-                .join( '/' )
-     
-            fs.writeFileSync( 
-                path, 
-                JSON.stringify( deployer, null, 4 ), 
-                'utf-8'
-            )
-        }
-
-        return true
+        return missingNames
     }
 
 
-    async #createAccount( { name, groupName, pattern, networkName, secret, encrypt, account } ) {
-        let deployer = await account
-            .createDeployer( { name, groupName, pattern, networkName, encrypt } )
-
-        deployer = this.#encryption.encryptCredential( { 
-            'credential': deployer
-        } )
-        
-        return deployer
-    }
 
 
-    #validateState( { accountGroup=null, projectName=null, names=null, networkName=null, pattern=null } ) {
+
+    #validateState( { groupName=null, projectName=null, names=null, networkName=null, pattern=null } ) {
         const messages = []
         const comments = []
  
         const tests = []
-        accountGroup !== null ? tests.push( [ accountGroup, 'accountGroup', 'stringsAndDash' ] ) : ''
+        groupName !== null ? tests.push( [ groupName, 'groupName', 'stringsAndDash' ] ) : ''
         projectName !== null ? tests.push( [ projectName, 'projectName', 'stringsAndDash' ] ) : ''
 
         const tmp = tests

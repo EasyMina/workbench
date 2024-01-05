@@ -1,5 +1,5 @@
 import { PrivateKey } from 'o1js'
-import { printMessages } from './../helpers/mixed.mjs'
+import { printMessages, keyPathToValue, shortenAddress } from './../helpers/mixed.mjs'
 import fs from 'fs'
 import moment from 'moment'
 
@@ -74,11 +74,9 @@ export class Contract {
             }, '' )
         result['header']['methods'] = await environment
             .getScriptMethods( { contractAbsolutePath } )
-        result['header']['created'] = moment().format( 'YYYY-MM-DD hh:mm:ss A')
-
+        result['header']['created'] = moment().format( 'YYYY-MM-DD hh:mm:ss A' )
         const publicKey = result['body']['publicKey']['base58']
-        result['header']['addressShort'] = 
-            `${publicKey.slice( 0, 8 )}...${publicKey.slice( -4 )}`
+        result['header']['addressShort'] = shortenAddress( { publicKey } )
         result['header']['addressFull'] = publicKey
         result['header']['explorer'] = this.#config['networks'][ networkName ]['explorer']['wallet']
             .replace( '{{publicKey}}', publicKey )
@@ -88,6 +86,7 @@ export class Contract {
         this.#state['requestContract'] = result
         return result
     }
+
 
     async prepareSave( { encryption } ) {
         const [ messages, comments ] = this.#validateState( { 'state': this.#state } )
@@ -153,6 +152,108 @@ export class Contract {
 
         if( typeof deployer !== 'object' ) {
             messages.push( `Key 'deployer' is not type of 'object'.` )
+        }
+
+        return [ messages, comments ]
+    }
+
+
+    validateCredential( { filePath, encrypt } ) {
+        const messages = []
+        const comments = []
+
+        let msg = ''
+        let json
+        try {
+            msg = `FilePath '${filePath}' could not load file`
+            const txt = fs.readFileSync( filePath, 'utf-8' )
+            msg = `FilePath '${filePath}' is not parsable.`
+            json = JSON.parse( txt )
+        } catch( e ) {
+            console.log( e )
+            messages.push( msg )
+        }
+
+        if( messages.length === 0 ) {
+            json = encrypt.decryptCredential( {
+                'credential': json
+            } )
+
+            const tests = this.#config['validate']['files']['contract']['keys']
+                .map( a => {
+                    const { name, key, validation, type } = a 
+                    const value = keyPathToValue( { 'data': json, 'keyPath': key } )
+                    const regex = keyPathToValue( { 'data': this.#config, 'keyPath': validation } )
+
+                    let test = null
+                    switch( type ) {
+                        case 'string':
+                            if( typeof value === undefined ) {
+                                test = false
+                                messages.push(`FilePath '${filePath}', key '${name}' is 'undefined'.` )
+                            } else if( typeof value !== 'string' ) {
+                                test = false
+                                messages.push( `FilePath '${filePath}', key '${name}' is type of 'string'.` )
+                            } else if( !regex['regex'].test( `${value}` ) ) {
+                                test = false
+                                messages.push( `FilePath '${filePath}', key '${name}' is not a valid pattern. ${regex['description']}` )
+                            } else {
+                                test = true
+                            }
+                            break
+                        case 'array':
+                            if( !Array.isArray( value ) ) {
+                                messages.push( `FilePath '${filePath}', key '${name}' is type of 'array'.` )
+                                test = false
+                            } else {
+                                test = value
+                                    .map( v =>  regex['regex'].test( v ) )
+                                    .every( a => a )
+
+                                if( !test ) {
+                                    messages.push( `FilePath '${filePath}', key '${name}' is not a valid pattern. ${regex['description']}` )
+                                }
+                            } 
+                            break
+                        default:
+                            console.log( `Unknown Type: ${type}.` )
+                            break
+                    }
+
+                    return test
+                } )
+                .every( a => a )
+
+            if( !tests && messages.length === 0 ) {
+                messages.push( `Credential raised an error.` )
+            }
+
+            const publicKey = PrivateKey
+                .fromBase58( json['body']['account']['privateKey'] )
+                .toPublicKey()
+                .toBase58()
+
+            const tests2 = [
+                [
+                    publicKey,
+                    json['body']['account']['publicKey']
+                ],
+                [
+                    shortenAddress( { publicKey } ),
+                    json['header']['addressShort']
+                ],
+                [
+                    this.#config['networks'][ json['header']['networkName'] ]['explorer']['wallet']
+                        .replace( `{{publicKey}}`, publicKey ),
+                    json['header']['explorer']
+                ]
+            ]
+                .map( a => a[ 0 ] === a[ 1 ] )
+                .every( a => a )
+
+            if( !tests2 ) {
+                messages.push( `PrivateKey from bodies privateKey differs from header publickey.` )
+            }
         }
 
         return [ messages, comments ]

@@ -3,7 +3,7 @@ import { EasyMina } from './../src/EasyMina.mjs'
 const easyMina = new EasyMina()
 easyMina
     .init()
-    .setAccountGroup( 'new-berkeley' )
+    .setAccountGroup( 'test-berkeley' )
     .setProjectName( 'ABC-Project' ) 
 
 await easyMina.newPersonas( { 

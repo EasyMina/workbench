@@ -1,7 +1,6 @@
 
 
 import { Mina, AccountUpdate } from 'o1js'
-import { Square } from './../contracts/build/Square.js'
 import { EasyMina } from '../../../src/EasyMina.mjs'
 
 
@@ -22,13 +21,14 @@ const deployer = easyMina.getAccount( {
     'groupName': 'new-berkeley'
 } )
 
-const contract = await easyMina.requestContract( {
-        'name': 'square-example',
-        'sourcePath': './../contracts/build/Square.js',
-        'networkName': 'berkeley',
-        deployer
+const contract = await easyMina.getDeployedContract( {
+    'name': 'square-example'
 } )
 
+
+process.exit( 1 )
+
+/*
 console.log( '- Compile Class' )
 const zkApp = new Square( contract['publicKey']['field'] )
 const compiled = await Square.compile()
@@ -66,4 +66,4 @@ const response = await signedMessage.send()
 const txHash = response.hash()
 console.log( `https://berkeley.minaexplorer.com/transaction/${txHash}` )
 
-easyMina.saveContract( { response } )
+*/

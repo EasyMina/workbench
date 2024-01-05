@@ -70,8 +70,43 @@ export const config = {
                         'type': 'string'
                     },
                     {
-                        'name': 'groups',
+                        'name': 'groupName',
                         'key': 'header__groupName',
+                        'validation': 'validate__values__string',
+                        'type': 'string'
+                    },
+                    {
+                        'name': 'publicKey',
+                        'key': 'body__account__publicKey',
+                        'validation': 'validate__values__minaPublicKey',
+                        'type': 'string'
+                    },
+                    {
+                        'name': 'privateKey',
+                        'key': 'body__account__privateKey',
+                        'validation': 'validate__values__minaPrivateKey',
+                        'type': 'string'
+                    }
+                ]
+            },
+            'contract': {
+                'type': 'json',
+                'keys': [
+                    {
+                        'name': 'name',
+                        'key': 'header__name',
+                        'validation': 'validate__values__string',
+                        'type': 'string'
+                    },
+                    {
+                        'name': 'projectName',
+                        'key': 'header__projectName',
+                        'validation': 'validate__values__string',
+                        'type': 'string'
+                    },
+                    {
+                        'name': 'networkName',
+                        'key': 'header__networkName',
                         'validation': 'validate__values__string',
                         'type': 'string'
                     },
@@ -292,8 +327,8 @@ export const config = {
         'supported': [ 'berkeley' ],
         'berkeley': {
             'explorer': {
-                'wallet': 'https://berkeley.minaexplorer.com/wallet/{{publicKey}}',
-                'transaction': 'https://berkeley.minaexplorer.com/transaction/{{txHash}}'
+                'wallet': 'https://minascan.io/berkeley/account/{{publicKey}}',
+                'transaction': 'https://minascan.io/berkeley/tx/{{txHash}}'
             },
             'faucet': {
                 'url': 'https://faucet.minaprotocol.com/api/v1/faucet',

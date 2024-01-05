@@ -39,4 +39,9 @@ function keyPathToValue( { data, keyPath, separator='__' } ) {
 }
 
 
-export { printMessages, keyPathToValue }
+function shortenAddress( { publicKey } ) {
+    return `${publicKey.slice( 0, 8 )}...${publicKey.slice( -4 )}`
+}
+
+
+export { printMessages, keyPathToValue, shortenAddress }

@@ -1,29 +1,20 @@
-const splits = [
-    '',
-    'Users',
-    'andreasbanholzer',
-    'PROJEKTE',
-    '2023-10-19--easymina-v2',
-    '2',
-    '0-easymina-cli',
-    'workdir',
-    'hello-world',
-    'contracts',
-    'build',
-    'Square.js'
-]
+import { MinaData } from 'minadata'
 
-const projectNames = [ 
-    'ABC-Project', 
-    'hello-world' 
-]
+const minaData = new MinaData()
+minaData.init( {} )
 
-const ttt = projectNames
-    .reduce( ( acc, projectName, index ) => {
-        const result = splits.find( a => ( a === projectName ) )
-        console.log( '-', result )
-        result !== undefined ? acc = result : ''
-        return acc
-    }, '' )
+const test = await minaData.getData( { 
+    'preset': 'accountBalance', 
+    'userVars': {
+        'publicKey': 'B62qreAk9MEEsQ7LFt5DkVFsJMp3eWZ5Ay8EGNJhWBMCDvLhMq9Ghaa'
+    },
+    'network': 'berkeley'
+} )
 
-console.log( 'ttt', ttt )
+console.log( test )
+
+
+// B62qq2F7uoLmbqpyxmYPJaVbbDvs3j9rLGUryRKEyBdbkVYxWu8TCaa // funded
+// B62qpBUTJ4hLUAYV8nbh9zo4eGiBDP9DtD7tGr9dJjdLgG2wBbe62Nr // contract
+
+

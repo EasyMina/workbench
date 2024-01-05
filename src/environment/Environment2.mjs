@@ -1,6 +1,5 @@
 import fs from 'fs'
-import { keyPathToValue } from './../helpers/mixed.mjs'
-import { printMessages } from './../helpers/mixed.mjs'
+import { printMessages, keyPathToValue } from './../helpers/mixed.mjs'
 
 
 export class Environment {
@@ -185,14 +184,71 @@ export class Environment {
     }
 
 
-    getContracts() {
+    getDevelopmentContracts() {
         const projectNames = this.getProjectNames()
         const result = projectNames
             .reduce( ( acc, projectName, index ) => {
-                acc[ projectName ] = this.#getContractsByProjectName( { 
+                acc[ projectName ] = this.#getDevelopmentContractsByProjectName( { 
                     projectName 
                 } )
                 return acc
+            }, {} )
+console.log( 'AAA', result  )
+process.exit( 1 )
+        return result
+    }
+
+
+    getDeployedContracts( { contract, encrypt } ) {
+        const path = [ 
+            'validate__folders__credentials__name',
+            'validate__folders__credentials__subfolders__contracts__name'
+        ]
+            .map( keyPath => keyPathToValue( { 'data': this.#config, keyPath } ) )
+            .join( '/' )
+
+        const result = fs.readdirSync( path )
+            .reduce( ( abb, file ) => {
+                const filePath = `${path}/${file}`
+                if( !fs.statSync( filePath ).isDirectory() ) {
+                    if( filePath.endsWith( '.json' ) ) {
+                        const [ messages, comments ] = contract
+                            .validateCredential( { filePath, encrypt } )
+                        if( messages.length === 0 ) {
+                            const tmp = fs.readFileSync( filePath, 'utf-8' )
+                            const credential = encrypt.decryptCredential( {
+                                'credential': JSON.parse( tmp )
+                            } )
+
+                            const struct = {
+                                filePath, 
+                                ...credential['header']
+                            }
+
+                            abb.push( struct )
+                        } else {
+                            console.log( messages )
+                        }
+                    }
+                }
+                return abb
+            }, [] )
+            .reduce( ( abb, item ) => {
+                const { projectName } = item
+                !Object.hasOwn( abb, projectName ) ? abb[ projectName ] = {} : ''
+
+                let key = item['name']
+                if( Object.hasOwn( abb[ projectName ], item['name'] ) ) {
+                    key += '-'
+                    key += Object
+                        .keys( abb[ projectName ] )
+                        .filter( a => a.startsWith( key ) )
+                        .length + 1
+                }
+
+                abb[ projectName ][ key ] = item
+
+                return abb
             }, {} )
 
         return result
@@ -292,7 +348,7 @@ export class Environment {
     }
 
 
-    #getContractsByProjectName( { projectName } ) {
+    #getDevelopmentContractsByProjectName( { projectName } ) {
         const pathContracts = [
             this.#config['validate']['folders']['workdir']['name'],
             projectName,
@@ -327,6 +383,13 @@ export class Environment {
                             }
 
                             acc[ id ][ key ] =  `${path}/${file}`
+/*
+                            if( search === '.js' ) {
+                                acc[ id ]['methods'] = this.getScriptMethods( { 
+                                    'contractAbsolutePath': `${path}/${file}`
+                                } )
+                            }
+*/
                         }
                     } )
                 return acc

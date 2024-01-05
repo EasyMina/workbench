@@ -1,0 +1,33 @@
+{
+    "compilerOptions": {
+        "target": "ES2019",
+        "module": "es2022",
+        "lib": [
+            "dom",
+            "esnext"
+        ],
+        "outDir": "./contracts/build",
+        "rootDir": "./contracts",
+        "strict": true,
+        "strictPropertyInitialization": false,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "moduleResolution": "node",
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        "allowJs": true,
+        "declaration": false,
+        "sourceMap": false,
+        "noFallthroughCasesInSwitch": true,
+        "allowSyntheticDefaultImports": true,
+        "isolatedModules": true
+    },
+    "include": [
+        "./contracts/**/*.ts"
+    ],
+    "exclude": [
+        "./contracts/build"
+    ]
+}

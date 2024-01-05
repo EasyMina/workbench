@@ -7,10 +7,16 @@ const result = easymina
      // .getDevelopmentContracts()
      // .getDeployedContracts()
 await easymina
-     .getAccount( {
-        'name': 'cetris',
-        'groupName': 'test-berkeley'
-     } )
+    .createAccounts( {
+        'names': [ 'aaa' ],
+        'groupName': 'check'
+    } )
+    
+await easymina
+    .getAccount( {
+        'name': 'aaa',
+        'groupName': 'check'
+    } )
 
 
 console.log( 'r', result )
