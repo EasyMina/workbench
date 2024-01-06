@@ -12,7 +12,7 @@ export class Environment {
         return true
     }
 
-
+/*
     init( { accountGroup, projectName } ) {
         this.#state = {
             accountGroup,
@@ -21,10 +21,10 @@ export class Environment {
 
         return true
     }
+*/
 
-
-    updateFolderStructure() {
-        const tmp = [
+    updateFolderStructure( { folderType, projectName } ) {
+        const credentials = [
             [ 
                 [ 'validate__folders__credentials__name', 'config' ]
             ],
@@ -36,24 +36,45 @@ export class Environment {
                 [ 'validate__folders__credentials__name', 'config' ],
                 [ 'validate__folders__credentials__subfolders__contracts__name', 'config' ] 
             ],
+        ]
+
+        const workdir = [
             [
                 [ 'validate__folders__workdir__name', 'config' ]
             ],
             [
                 [ 'validate__folders__workdir__name', 'config' ],
-                [ 'projectName', 'state' ]
+                [ projectName, 'state' ]
             ],
             [
                 [ 'validate__folders__workdir__name', 'config' ],
-                [ 'projectName', 'state' ],
+                [ projectName, 'state' ],
                 [ 'validate__folders__workdir__subfolders__subfolders__backend__name', 'config' ]
             ],
             [
                 [ 'validate__folders__workdir__name', 'config' ],
-                [ 'projectName', 'state' ],
+                [ projectName, 'state' ],
                 [ 'validate__folders__workdir__subfolders__subfolders__frontend__name', 'config' ]
             ]
         ]
+
+
+        let selection
+
+        switch( folderType ) {
+            case 'credentials':
+                selection = credentials
+                break
+            case 'workdir':
+                selection = workdir
+                break
+            default:
+                console.log( `FolderType '${folderType}' is not known.` )
+                process.exit( 1 )
+                break
+        }
+
+        selection
             .forEach( cmds => {
                 const path = cmds
                     .map( cmd => {
@@ -64,7 +85,7 @@ export class Environment {
                                 value = keyPathToValue( { 'data': this.#config, keyPath } )
                                 break
                             case 'state':
-                                value = keyPathToValue( { 'data': this.#state, keyPath } )
+                                value = keyPath // keyPathToValue( { 'data': this.#state, keyPath } )
                                 break
                             default:
                                 console.log( 'Something went wrong!' )
@@ -125,13 +146,23 @@ export class Environment {
             .map( keyPath => keyPathToValue( { 'data': this.#config, keyPath } ) )
             .join( '/' )
   
-        const result = fs.readdirSync( path )
+        const result = fs
+            .readdirSync( path )
+            .sort( ( a, b ) => {
+                if ( a > b ) { 
+                    return -1 
+                } else if( a < b ) {
+                    return 1
+                } else {
+                    return 0
+                }
+            } )
             .reduce( ( abb, file ) => {
                 const filePath = `${path}/${file}`
                 if( !fs.statSync( filePath ).isDirectory() ) {
                     if( filePath.endsWith( '.json' ) ) {
                         const [ messages, comments ] = account
-                            .validateDeployer( { filePath, encrypt } )
+                            .validate( { filePath, encrypt } )
                         if( messages.length === 0 ) {
                             const tmp = fs.readFileSync( filePath, 'utf-8' )
                             const credential = encrypt.decryptCredential( {
@@ -193,8 +224,7 @@ export class Environment {
                 } )
                 return acc
             }, {} )
-console.log( 'AAA', result  )
-process.exit( 1 )
+
         return result
     }
 

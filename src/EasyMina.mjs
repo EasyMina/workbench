@@ -74,7 +74,6 @@ export class EasyMina {
         git.addGitIgnore()
 
 */
-
         return this
     }
 
@@ -88,6 +87,7 @@ export class EasyMina {
     }
 */
 
+/*
     setProjectName( projectName ) {
         const [ messages, comments ] = this.#validateState( { projectName } )
         printMessages( { messages, comments } )
@@ -95,58 +95,56 @@ export class EasyMina {
         this.#state['projectName'] = projectName
         return this
     }
+*/
 
-
-    async createAccounts( { names=[], networkName='berkeley', groupName, pattern=true } ) {
-        const [ messages, comments ] = this.#validateState( { names, networkName, pattern, groupName } )
+    async createAccounts( { names, networkName, groupName, pattern=true } ) {
+        const [ messages, comments ] = this.#validateCreateAccount( { 'name': 'placeholder', names, groupName, pattern, networkName } )
         printMessages( { messages, comments } )
 
-        const { groupName, projectName } = this.#state
-        this.#environment.init( { groupName, projectName } )
-        this.#environment.updateFolderStructure()
+        this.#environment.updateFolderStructure( { 'folderType': 'credentials' } )
+        const missingNames = this.#getMissingAccounts( { names, groupName } )
 
-        const missingNames = this.#getMissingAccounts( { names, groupName, networkName, pattern } )
-        
         for( let i = 0; i < missingNames.length; i++ ) {
             const [ name, groupName ] = missingNames[ i ]
-            console.log( 'Create', name )
-            const deployer = await this.createAccount( {
+            await this.createAccount( {
                 name,
                 groupName,
                 pattern,
                 networkName
             } )
-
-            let path = [
-                this.#config['validate']['folders']['credentials']['name'],
-                this.#config['validate']['folders']['credentials']['subfolders']['accounts']['name'],
-                `${name}--${moment().unix()}.json`
-            ]
-                .join( '/' )
-     
-            fs.writeFileSync( 
-                path, 
-                JSON.stringify( deployer, null, 4 ), 
-                'utf-8'
-            )
         }
 
         return true
     }
 
 
-    async createAccount( { name, groupName, pattern, networkName, /*secret, encrypt, account*/ } ) {
-        const secret = this.#state['secret']
+    async createAccount( { name, groupName, networkName, pattern=true } ) {
+        const [ messages, comments ] = this.#validateCreateAccount( { name, groupName, pattern, networkName } )
+        printMessages( { messages, comments } )
+
         const encrypt = this.#state['encryption']
         const account = this.#account
 
         let deployer = await account
-            .createDeployer( { name, groupName, pattern, networkName, encrypt } )
+            .create( { name, groupName, pattern, networkName, encrypt } )
 
         deployer = this.#encryption.encryptCredential( { 
             'credential': deployer
         } )
-        
+
+        let path = [
+            this.#config['validate']['folders']['credentials']['name'],
+            this.#config['validate']['folders']['credentials']['subfolders']['accounts']['name'],
+            `${name}--${moment().unix()}.json`
+        ]
+            .join( '/' )
+ 
+        fs.writeFileSync( 
+            path, 
+            JSON.stringify( deployer, null, 4 ), 
+            'utf-8'
+        )
+
         return deployer
     }
 
@@ -180,9 +178,8 @@ export class EasyMina {
 
 
     getDeployedContract( { name, projectName } ) {
-        const contracts = this.getDepoloyedContracts()
+        const contracts = this.getDeployedContracts()
         const deployedContracts = this.getDeployedContracts()
-        console.log( '>', deployedContracts )
 
         return true
     }
@@ -198,35 +195,14 @@ export class EasyMina {
     }
 
 
-    async getAccount( { name, groupName } ) {
+    async getAccount( { name, groupName, checkStatus=true, strict=true } ) {
         const accounts = this.getAccounts()
-        const [ messages, comments ] = this.#validateGetAccount( { name, groupName, accounts } )
+        const [ messages, comments ] = this.#validateGetAccount( { name, groupName, accounts, checkStatus, strict } )
         printMessages( { messages, comments } )
 
-        const select = accounts[ groupName ][ name ]
-        const accountStatus = await this.#minaData.getData( { 
-            'preset': 'accountBalance', 
-            'userVars': {
-                'publicKey': select['addressFull']
-            },
-            'network': 'berkeley'
-        } )
-
-        console.log( '>>>', JSON.stringify( accountStatus, null, 4 ))
-
-        if( accountStatus['data']['account'] === null ) {
-            console.log( `Account is unknown. Pease check the status: ${select['faucetTxHashExplorer']}.` )
-            process.exit( 1 )
-        } else {
-            accountStatus['data']['account']['total']
-        }
-
-
-        let credential = JSON.parse( fs.readFileSync( select['filePath'], 'utf-8' ) )
-        credential = this.#encryption.decryptCredential( { credential } )
-
+        const selection = accounts[ groupName ][ name ]
         const result = {
-            'filePath': select['filePath'],
+            'filePath': selection['filePath'],
             'privateKey': {
                 'field': null,
                 'base58': null
@@ -234,17 +210,91 @@ export class EasyMina {
             'publicKey': {
                 'field': null,
                 'base58': null
+            },
+            'balance': null,
+            'nonce': null
+        }
+
+        if( checkStatus ) {
+            const data = await this.getAccountStatus( { 
+                'publicKey': selection['addressFull'],
+                'networkName': selection['networkName']
+            } ) 
+
+            if( data['status']['code'] !== 200 ) {
+                console.log( `${data['status']['message']} Check for pending transactions: ${selection['faucetTxHashExplorer']}.` )
+                strict ? process.exit( 1 ) : ''
+            } else if( !data['success'] ) {
+                console.log( `Balance not found. Check for pending transactions: ${selection['faucetTxHashExplorer']}.` )
+                strict ? process.exit( 1 ) : ''
+            } else {
+                result['balance'] = data['balance']
+                result['nonce'] = data['nonce']
             }
         }
+
+        let credential = JSON.parse( fs.readFileSync( selection['filePath'], 'utf-8' ) )
+        credential = this.#encryption.decryptCredential( { credential } )
 
         result['privateKey']['base58'] = credential['body']['account']['privateKey']
         result['privateKey']['field'] = PrivateKey.fromBase58( result['privateKey']['base58'] )
 
         result['publicKey']['field']  = result['privateKey']['field'].toPublicKey()
-
         result['publicKey']['base58'] = result['publicKey']['field'].toBase58()
 
         return result
+    }
+
+
+    async getAccountStatus( { publicKey, networkName } ) {
+        const [ messages, comments ] = this.#validateGetAccountStatus( { publicKey, networkName } )
+        printMessages( { messages, comments } )
+
+        const data = await this.#minaData.getData( { 
+            'preset': 'accountBalance', 
+            'userVars': { publicKey },
+            'network': 'berkeley'
+        } )
+
+        const account = {
+            'status': {
+                'code': null,
+                'message': null
+            },
+            'balance': null,
+            'nonce': null,
+            'success': false
+        }
+
+        if( data['status']['code'] !== 200 ) {
+            account['status']['code'] = 503
+            account['status']['message'] = `Network Error, could not fetch information for '${publicKey}' on '${networkName}'.`
+        } else if( data['data']['account'] === null ) {
+            account['status']['code'] = 400
+            account['status']['message'] = `PublicKey '${publicKey}' on '${networkName}' is unknown.`
+        } else {
+            account['status']['code'] = 200
+        }
+
+        try {
+            if( account['status']['code'] === 200 ) {
+                account['success'] = [
+                    [ data['data']['account']['balance']['total'], 'balance' ],
+                    [ data['data']['account']['nonce'], 'nonce' ] 
+                ]
+                    .map( a => {
+                        const [ value, key ] = a
+                        if( value !== undefined ) {
+                            account[ key ] = value
+                            return true
+                        } else {
+                            return false
+                        }
+                    } ) 
+                    .every( a => a )
+            }
+        } catch( e ) {}
+        return account
     }
 
 
@@ -325,15 +375,13 @@ export class EasyMina {
 
 
     async importProject( { projectPath } ) {
-        await this.#projectImporter.addProject( { projectPath } )
-
-        console.log( 'A' )
+        await this.#projectImporter
+            .addProject( { projectPath } )
         return true
     }
 
 
     async exportProject( { projectName } ) {
-        // TODO
         return true
     }
 
@@ -392,6 +440,7 @@ export class EasyMina {
         } )
 
         const missingNames = names
+            .map( name => [ name, groupName ] )
             .filter( name => {
                 if( Object.hasOwn( availableDeyployers, groupName ) ) {
                     if( Object.hasOwn( availableDeyployers[ groupName ], name ) ) {
@@ -407,10 +456,7 @@ export class EasyMina {
         return missingNames
     }
 
-
-
-
-
+/*
     #validateState( { groupName=null, projectName=null, names=null, networkName=null, pattern=null } ) {
         const messages = []
         const comments = []
@@ -460,6 +506,57 @@ export class EasyMina {
 
         return [ messages, comments ]
     }
+*/
+
+    #validateCreateAccount( { name, names=null, groupName, pattern, networkName } ) {
+        const messages = []
+        const comments = []
+
+        const tests = []
+        name !== null ? tests.push( [ name, 'name', 'stringsAndDash' ] ) : ''
+        groupName !== null ? tests.push( [ groupName, 'groupName', 'stringsAndDash' ] ) : ''
+
+        const tmp = tests
+            .forEach( a => {
+                const [ value, key, regexKey ] = a
+                if( typeof value !== 'string' ) {
+                    messages.push( `Key '${key}' is not type of string` )
+                } else if( !this.#config['validate']['values'][ regexKey ]['regex'].test( value ) ) {
+                    messages.push( `Key '${key}' with the value '${value}' has not the expected pattern. ${this.#config['validate']['values'][ regexKey ]['description']}` )
+                }
+            } )
+
+        if( names === null ) {
+        } else if( !Array.isArray( names ) ) {
+            messages.push( `Key 'names' is not type of array.` )
+        } else if( names.length === 0 ) {
+            messages.push( `Key 'names' is empty` )
+        } else {
+            names
+                .forEach( ( value ) => {
+                    if( typeof value !== 'string' ) {
+                        messages.push( `Key 'names' with the value '${value}' is not type of string.` )
+                    } else if( !this.#config['validate']['values']['stringsAndDash']['regex'].test( value ) ) {
+                        messages.push( `Key '${key}' with the value '${value}' has not the expected pattern. ${this.#config['validate']['values']['stringsAndDash']['description']}` )
+                    }
+
+                } )
+        }
+
+        if( networkName === null ) {
+        } else if( typeof networkName !== 'string' ) {
+            messages.push( `Key 'networkName' is not type of string.` )
+        } else if( !this.#config['networks']['supported'].includes( networkName ) ) {
+            messages.push( `Key 'networkName' with the value '${networkName}' is not a valid input. Supported networks are ${this.#config['networks']['supported'].map( a => `'${a}'`).join( ',' )}.` )
+        }
+
+        if( pattern === null ) {
+        } else if( typeof pattern !== 'boolean' ) {
+            messages.push( `Key 'pattern' is not type of 'boolean'.` )
+        }
+        
+        return [ messages, comments ]
+    }
 
 
     #validateGetContracts( { name, projectName, contracts } ) {
@@ -473,7 +570,7 @@ export class EasyMina {
         if( typeof projectName !== 'string' ) {
             messages.push( `Key 'projectName' is not type of string.` )
         } else if( !Object.keys( contracts ).includes( projectName ) ) {
-            messages.push( `Key 'projectName' with the value '${projectName}' is not valid. Choose from ${Object.keys( contracts ).join( ', ' )} instead.` )
+            messages.push( `Key 'projectName' with the value '${projectName}' is not valid. Choose from ${Object.keys( contracts ).map( a => `'${a}'`).join( ', ' )} instead.` )
         }
 
         if( messages.length !== 0 ) {
@@ -482,16 +579,19 @@ export class EasyMina {
 
         const keys = Object.keys( contracts[ projectName ] )
         if( !keys.includes( name ) ) {
-            messages.push( `Key 'name' with the value '${name}' is not valid. Choose from ${keys.join( ', ' )} instead.` )
+            messages.push( `Key 'name' with the value '${name}' is not valid. Choose from ${keys.map( a => `'${a}'`).join( ', ' )} instead.` )
         }
 
         return [ messages, comments ]
     }
 
 
-    #validateGetAccount( { name, groupName, accounts } ) {
+    #validateGetAccount( { name, groupName, accounts, checkStatus, strict } ) {
         const messages = []
         const comments = []
+
+
+
 
         if( typeof name !== 'string' ) {
             messages.push( `Key 'name' is not type of 'string'.` )
@@ -500,7 +600,7 @@ export class EasyMina {
         if( typeof groupName !== 'string' ) {
             messages.push( `Key 'groupName' is not type of 'string'.` )
         } else if( !Object.keys( accounts ).includes( groupName ) ) {
-            messages.push( `Key 'groupName' with the value '${groupName}' is not valid. Choose from ${Object.keys( accounts ).join( ', ' )} instead.` )
+            messages.push( `Key 'groupName' with the value '${groupName}' is not valid. Choose from ${Object.keys( accounts ).map( a => `'${a}'`).join( ', ' )} instead.` )
         }
 
         if( messages.length !== 0 ) {
@@ -508,7 +608,42 @@ export class EasyMina {
         }
 
         if( !Object.keys( accounts[ groupName ] ).includes( name ) ) {
-            messages.push( `Key 'name' with the value '${name}' is not valid. Choose from ${Object.keys( accounts[ groupName ] )} instead.` )
+            messages.push( `Key 'name' with the value '${name}' is not valid. Choose from ${Object.keys( accounts[ groupName ] ).map( a => `'${a}'`).join( ', ' )} instead.` )
+        }
+
+        const tmp = [ 
+            [ checkStatus, 'checkStatus' ], 
+            [ strict, 'strict' ] 
+        ]
+            .forEach( a => {
+                const [ value, key ] = a
+                if( typeof value !== 'boolean' ) {
+                    messages.push( `Key '${key}' is not type of 'boolean'.` )
+                }
+            } )
+
+        return [ messages, comments ]
+    }
+
+
+    #validateGetAccountStatus( { publicKey, networkName } ) {
+        const messages = []
+        const comments = []
+
+        if( publicKey === undefined ) {
+            messages.push( `Key 'publicKey' is type of 'undefined'.` )
+        } else if( typeof publicKey !== 'string' ) {
+            messages.push( `Key 'publicKey' is not type of 'string'.`)
+        } else if( !this.#config['validate']['values']['minaPublicKey']['regex'].test( publicKey ) ) {
+            messages.push( `Key 'publicKey' with the value '${publicKey}' is not a valid publicKey string. ${this.#config['validate']['values']['minaPublicKey']['description']}` )
+        }
+
+        if( publicKey === undefined ) {
+            messages.push( `Key 'networkName' is type of 'undefined'.` )
+        } else if( typeof networkName !== 'string' ) {
+            messages.push( `Key 'networkName' is not type of string.` )
+        } else if( !this.#config['networks']['supported'].includes( networkName ) ) {
+            messages.push( `Key 'networkName' with the value '${networkName}' is not a valid input. Supported networks are ${this.#config['networks']['supported'].map( a => `'${a}'`).join( ',' )}.` )
         }
 
         return [ messages, comments ]
