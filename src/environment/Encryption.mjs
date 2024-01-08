@@ -119,13 +119,14 @@ export class Encryption {
         } )
         printMessages( { messages, comments } )
 
-        if( credential['header']['encrypt'] ) {
-            credential['body'] = this.encrypt( { 
-                'text': JSON.stringify( credential['body'] )
+        const result = JSON.parse( JSON.stringify( credential ) )
+        if( result['header']['encrypt'] ) {
+            result['body'] = this.encrypt( { 
+                'text': JSON.stringify( result['body'] )
             } )
         }
 
-        return credential
+        return result
     }
 
 

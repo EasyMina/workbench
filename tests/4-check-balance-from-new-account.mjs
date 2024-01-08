@@ -25,13 +25,15 @@ await easymina
 */
 
 const struct = {
-    'name': 'abc',
+    'name': 'andreas',
     'groupName': 'try',
-    'networkName': 'berkeley'
+    'networkName': 'berkeley',
+    'checkStatus': true,
+    'strict': false
 } 
 
-console.log( 'Create Account' )
+console.log( 'Create Account' ) 
 await easymina.createAccount( struct )
 console.log( 'Get Account' )
-const account = await easymina.getAccount( struct )
-console.log( account )
+const cred = await easymina.getAccount( struct )
+// console.log( 'cred', cred )

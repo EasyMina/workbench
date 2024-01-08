@@ -149,13 +149,9 @@ export class Environment {
         const result = fs
             .readdirSync( path )
             .sort( ( a, b ) => {
-                if ( a > b ) { 
-                    return -1 
-                } else if( a < b ) {
-                    return 1
-                } else {
-                    return 0
-                }
+                if( a > b ) { return -1 } 
+                else if( a < b ) { return 1 } 
+                else { return 0 }
             } )
             .reduce( ( abb, file ) => {
                 const filePath = `${path}/${file}`
@@ -237,7 +233,13 @@ export class Environment {
             .map( keyPath => keyPathToValue( { 'data': this.#config, keyPath } ) )
             .join( '/' )
 
-        const result = fs.readdirSync( path )
+        const result = fs
+            .readdirSync( path )
+            .sort( ( a, b ) => {
+                if( a > b ) { return -1 } 
+                else if( a < b ) { return 1 } 
+                else { return 0 }
+            } )
             .reduce( ( abb, file ) => {
                 const filePath = `${path}/${file}`
                 if( !fs.statSync( filePath ).isDirectory() ) {

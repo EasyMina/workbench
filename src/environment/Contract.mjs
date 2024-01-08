@@ -106,6 +106,33 @@ export class Contract {
     }
 
 
+    getDeployedContract( { filePath, encryption } ) {
+        const raw = fs.readFileSync( filePath )
+        let credential = JSON.parse( raw )
+        credential = encryption.decryptCredential( { credential } )
+
+        const result = {
+            'privateKey': {
+                'base58': null,
+                'field': null
+            },
+            'publicKey': {
+                'base58': null,
+                'field': null
+            }
+        }
+        result['privateKey']['base58'] = credential['body']['account']['privateKey']
+        result['privateKey']['field'] = PrivateKey
+            .fromBase58( result['privateKey']['base58'] )
+        result['publicKey']['field']  = result['privateKey']['field']
+            .toPublicKey()
+        result['publicKey']['base58'] = result['publicKey']['field']
+            .toBase58()
+
+        return result
+    }
+
+
     #validateState( { state } ) {
         const messages = []
         const comments = []

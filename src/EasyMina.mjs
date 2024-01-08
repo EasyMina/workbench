@@ -1,7 +1,7 @@
 import { config } from './data/config.mjs'
 import { Environment } from './environment/Environment2.mjs'
 
-import { printMessages } from './helpers/mixed.mjs'
+import { printMessages, shortenAddress } from './helpers/mixed.mjs'
 import { Account } from './environment/Account.mjs'
 import { Contract } from './environment/Contract.mjs'
 import { Encryption } from './environment/Encryption.mjs'
@@ -11,7 +11,6 @@ import { ProjectImporter } from './import/ProjectImporter.mjs'
 import { MinaData } from 'minadata'
 
 import path from 'path'
-
 import moment from 'moment'
 import fs from 'fs'
 import { PrivateKey } from 'o1js'
@@ -30,19 +29,18 @@ export class EasyMina {
 
     constructor() {
         this.#config = config
-
         return 
     }
 
 
-    init() {
-        const networkNames = [ 'berkeley' ]
-        const encryption = true
+    init( cfg={ encryption: true } ) {
+        const [ messages, comments ] = this.#validateInit( cfg )
+        printMessages( { messages, comments } )
 
         this.#account = this.#addAccount()
         this.#environment = this.#addEnvironment()
         this.#encryption = new Encryption()
-        this.#state = this.#addState( { networkNames, encryption } )
+        this.#state = this.#addState( { 'encryption': cfg['encryption'] } )
         this.#encryption.setSecret( { 'secret': this.#state['secret'] } )
 
         const typescript = new Typescript( {
@@ -104,17 +102,19 @@ export class EasyMina {
         this.#environment.updateFolderStructure( { 'folderType': 'credentials' } )
         const missingNames = this.#getMissingAccounts( { names, groupName } )
 
+        const deployers = []
         for( let i = 0; i < missingNames.length; i++ ) {
             const [ name, groupName ] = missingNames[ i ]
-            await this.createAccount( {
+            const deployer = await this.createAccount( {
                 name,
                 groupName,
                 pattern,
                 networkName
             } )
+            deployers.push( deployer )
         }
 
-        return true
+        return deployers
     }
 
 
@@ -122,15 +122,26 @@ export class EasyMina {
         const [ messages, comments ] = this.#validateCreateAccount( { name, groupName, pattern, networkName } )
         printMessages( { messages, comments } )
 
+        let deployer
+        const accounts = this.getAccounts()
+        if( Object.hasOwn( accounts, groupName ) ) {
+            if( Object.hasOwn( accounts[ groupName ], name ) ) {
+                const txt = fs.readFileSync( accounts[ groupName ][ name ]['filePath'], 'utf-8' )
+                const existing = JSON.parse( txt )
+                const existingDeployer = this.#encryption
+                    .decryptCredential( { 'credential': existing } )
+                return existingDeployer
+            }
+        }
+
         const encrypt = this.#state['encryption']
         const account = this.#account
 
-        let deployer = await account
+        deployer = await account
             .create( { name, groupName, pattern, networkName, encrypt } )
 
-        deployer = this.#encryption.encryptCredential( { 
-            'credential': deployer
-        } )
+        const fileContent = this.#encryption
+            .encryptCredential( { 'credential': deployer } )
 
         let path = [
             this.#config['validate']['folders']['credentials']['name'],
@@ -141,7 +152,7 @@ export class EasyMina {
  
         fs.writeFileSync( 
             path, 
-            JSON.stringify( deployer, null, 4 ), 
+            JSON.stringify( fileContent, null, 4 ), 
             'utf-8'
         )
 
@@ -157,7 +168,7 @@ export class EasyMina {
 
     getDevelopmentContract( { name, projectName } ) {
         const contracts = this.getDevelopmentContracts()
-        // console.log( 'c', contracts )
+
         const [ messages, comments ] = this.#validateGetContracts( { name, projectName, contracts } )
         printMessages( { messages, comments } )
 
@@ -177,11 +188,19 @@ export class EasyMina {
     }
 
 
-    getDeployedContract( { name, projectName } ) {
-        const contracts = this.getDeployedContracts()
+    async getDeployedContract( { name, projectName } ) {
         const deployedContracts = this.getDeployedContracts()
+        const [ messages, comments ] = this.#validateGetDeployedContract( { name, projectName, deployedContracts } )
+        printMessages( { messages, comments } )
 
-        return true
+        const header = deployedContracts[ projectName ][ name ]
+        const classes = this.#contract.getDeployedContract( { 
+            'filePath': header['filePath'],
+            'encryption': this.#encryption
+        } )
+
+        const result = { ...header, ...classes }
+        return result
     }
 
 
@@ -195,7 +214,7 @@ export class EasyMina {
     }
 
 
-    async getAccount( { name, groupName, checkStatus=true, strict=true } ) {
+    async getAccount( { name, groupName, checkStatus=false, strict=false } ) {
         const accounts = this.getAccounts()
         const [ messages, comments ] = this.#validateGetAccount( { name, groupName, accounts, checkStatus, strict } )
         printMessages( { messages, comments } )
@@ -212,7 +231,8 @@ export class EasyMina {
                 'base58': null
             },
             'balance': null,
-            'nonce': null
+            'nonce': null,
+            'explorer': null
         }
 
         if( checkStatus ) {
@@ -242,6 +262,8 @@ export class EasyMina {
         result['publicKey']['field']  = result['privateKey']['field'].toPublicKey()
         result['publicKey']['base58'] = result['publicKey']['field'].toBase58()
 
+        result['explorer'] = credential['header']['explorer']
+
         return result
     }
 
@@ -268,10 +290,10 @@ export class EasyMina {
 
         if( data['status']['code'] !== 200 ) {
             account['status']['code'] = 503
-            account['status']['message'] = `Network Error, could not fetch information for '${publicKey}' on '${networkName}'.`
+            account['status']['message'] = `Network Error, could not fetch information for '${shortenAddress( { publicKey }) }' on '${networkName}'.`
         } else if( data['data']['account'] === null ) {
             account['status']['code'] = 400
-            account['status']['message'] = `PublicKey '${publicKey}' on '${networkName}' is unknown.`
+            account['status']['message'] = `PublicKey '${shortenAddress( { publicKey }) }' on '${networkName}' is unknown.`
         } else {
             account['status']['code'] = 200
         }
@@ -327,30 +349,72 @@ export class EasyMina {
     }
 
 
-    async saveContract( { response }) {
+    async saveContract( { response } ) {
+        const [ messages, comments ] = this.#validateSaveContract( { response } )
+        printMessages( { messages, comments } )
+
         const result = await this.#contract.prepareSave( { 
             'encryption': this.#encryption 
         } )
 
         const networkName = result['header']['networkName']
-        result['header']['txHash'] = response.hash()
-        result['header']['txHashExplorer'] = this.#config['networks'][ networkName ]['explorer']['transaction']
-            .replace( '{{txHash}}', result['header']['txHash'] )
+        try {            
+            result['header']['txHash'] = response.hash()
+            result['header']['txHashExplorer'] = this.#config['networks'][ networkName ]['explorer']['transaction']
+                .replace( '{{txHash}}', result['header']['txHash'] )
 
-        let path = [
-            this.#config['validate']['folders']['credentials']['name'],
-            this.#config['validate']['folders']['credentials']['subfolders']['contracts']['name'],
-            `${result['header']['name']}--${moment().unix()}.json`
-        ]
-            .join( '/' )
- 
-        fs.writeFileSync( 
-            path, 
-            JSON.stringify( result, null, 4 ), 
-            'utf-8'
-        )
+            if( response['isSuccess'] === true ) {
+                result['header']['txHashSuccess'] = response['isSuccess']
+                let path = [
+                    this.#config['validate']['folders']['credentials']['name'],
+                    this.#config['validate']['folders']['credentials']['subfolders']['contracts']['name'],
+                    `${result['header']['name']}--${moment().unix()}.json`
+                ]
+                    .join( '/' )
+
+                fs.writeFileSync( 
+                    path, 
+                    JSON.stringify( result, null, 4 ), 
+                    'utf-8'
+                )
+            } else {
+                console.log( `The transaction did not succeed, and the contract was not saved.` )
+                if( Object.hasOwn( response, 'errors' ) ) {
+                    if( Array.isArray( response['errors'] ) ) {
+                        response['errors']
+                            .forEach( msg => {
+                                switch( msg['statusText'] ) {
+                                    case "Couldn't send zkApp command: [\"Insufficient_replace_fee\"]":
+                                        console.log( 'Did you cu')
+                                        break
+                                    default:
+                                        break
+                                }
+                            } )
+                    }
+                }
+            }
+
+        } catch( e ) {
+            result['header']['txHash'] = null
+            result['header']['txHashExplorer'] = null
+        }
 
         return result
+    }
+
+
+    async loadModuleExperimental( { sourceCode } ) {
+        const tmpAbsolutePath = path.resolve(
+            path.dirname( process.argv[ 1 ] ), 
+            `tmp-${moment().unix()}.mjs`
+        )
+
+        fs.writeFileSync( tmpAbsolutePath, sourceCode, 'utf-8' )
+        const _module = await import( tmpAbsolutePath )
+        fs.unlinkSync( tmpAbsolutePath )
+
+        return _module
     }
 
 
@@ -386,7 +450,7 @@ export class EasyMina {
     }
 
 
-    #addState( { encryption, networkNames } ) {
+    #addState( { encryption } ) {
         const secret = this.#environment.getSecret( {
             'filePath': null,
             'encryption': this.#encryption
@@ -403,7 +467,6 @@ export class EasyMina {
             'projectName': null,
             'names': null,
             secret,
-            networkNames,
             encryption
         }
 
@@ -508,6 +571,30 @@ export class EasyMina {
     }
 */
 
+    #validateInit( cfg ) {
+        const messages = []
+        const comments = []
+
+        if( cfg === undefined ) {
+            messages.push( `Key 'cfg' is type of 'undefined'.` )
+        } else if( cfg.constructor !== Object ) {
+            messages.push( `Key 'cfg' with the value '${cfg}' is not type of 'object'.` )
+        }
+
+        if( messages.length !== 0 ) {
+            return [ messages, comments ]
+        }
+
+        if( !Object.hasOwn( cfg, 'encryption' ) ) {
+            messages.push( `Key 'encryption' with the type of 'boolean' is missing.` )
+        } else if( typeof cfg['encryption'] !== 'boolean' ) {
+            messages.push( `Key 'encryption' with the value '${cfg['encrpytion']}' is not type of 'boolean'.` )
+        }
+
+        return [ messages, comments ]
+    }
+
+
     #validateCreateAccount( { name, names=null, groupName, pattern, networkName } ) {
         const messages = []
         const comments = []
@@ -590,9 +677,6 @@ export class EasyMina {
         const messages = []
         const comments = []
 
-
-
-
         if( typeof name !== 'string' ) {
             messages.push( `Key 'name' is not type of 'string'.` )
         } 
@@ -644,6 +728,59 @@ export class EasyMina {
             messages.push( `Key 'networkName' is not type of string.` )
         } else if( !this.#config['networks']['supported'].includes( networkName ) ) {
             messages.push( `Key 'networkName' with the value '${networkName}' is not a valid input. Supported networks are ${this.#config['networks']['supported'].map( a => `'${a}'`).join( ',' )}.` )
+        }
+
+        return [ messages, comments ]
+    }
+
+
+    #validateSaveContract( { response } ) {
+        const messages = []
+        const comments = []
+
+        if( typeof response === undefined ) {
+            messages.push( `Key 'response' is type of 'undefined'.` )
+        } else if( typeof response !== 'object' ) {
+            messages.push( `Key 'response' is not type of 'object'.` )
+        } else if( response.constructor !== Object ) {
+            messages.push( `Key 'response' with the constructor type '${response.constructor}' is not valid, use 'Object'.` ) 
+        } else if( !Object.hasOwn( response, 'isSuccess' ) ) {
+            messages.push( `Key 'response' has not a key/value pair 'isSuccess'.` )
+        } else if( typeof response['isSuccess'] !== 'boolean' ) {
+            messages.push( `Key 'response' with the key/value pair 'isSuccess' is not type of 'boolean'.` )
+        }
+
+        return [ messages, comments ]
+    }
+
+
+    #validateGetDeployedContract( { name, projectName, deployedContracts } ) {
+        const messages = []
+        const comments = []
+
+        const tmp = [
+            [ name, 'name' ],
+            [ projectName, 'projectName' ]
+        ]
+            .forEach( a => {
+                const [ value, key ] = a
+                if( value === undefined ) {
+                    messages.push( `Key '${key}' is 'undefined'. ` )
+                } else if( typeof value !== 'string' ) {
+                    messages.push( `Key '${key}' is type of 'string'.` )
+                } else if( !this.#config['validate']['values']['stringsAndDash']['regex'].test( name ) ) {
+                    messages.push( `Key '${key}' with the value '${value}' has not a valid pattern. ${this.#config['validate']['values']['stringsAndDash']['description']}`)
+                } 
+            } )
+
+        if( messages.length !== 0 ) {
+            return [ messages, comments ]
+        }
+
+        if( !Object.hasOwn( deployedContracts, projectName ) ) {
+            messages.push( `Key 'projectName' with the value '${projectName}' is not found.` )
+        } else if( !Object.hasOwn( deployedContracts[ projectName ], name ) ) {
+            messages.push( `Key 'name' with the value '${name}' and 'projectName' with the value '${projectName}' is not found in the contracts folder.` )
         }
 
         return [ messages, comments ]
