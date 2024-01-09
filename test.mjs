@@ -1,10 +1,4 @@
-const messages = []
-const variable = {}
+import { EasyMina } from './src/EasyMina.mjs'
 
-if( variable === undefined ) {
-    messages.push( `Key 'variable' is type of 'undefined'.` )
-} else if( variable.constructor !== Object ) {
-    messages.push( `Key 'variable' with the value '${variable}' is not type of 'object'.` )
-}
-
-console.log( messages )
+const easyMina = new EasyMina()
+easyMina.init()

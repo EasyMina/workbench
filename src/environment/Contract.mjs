@@ -35,7 +35,7 @@ export class Contract {
                 'explorer': null,
                 'created': null,
                 'deployer': null,
-                'source': null,
+                'sourceCode': null,
                 encrypt
             },
             'body': {
@@ -61,7 +61,7 @@ export class Contract {
         result['body']['publicKey']['base58'] = result['body']['publicKey']['field']
             .toBase58()
 
-        result['header']['source'] = fs.readFileSync( contractAbsolutePath, 'utf-8' )
+        result['header']['sourceCode'] = fs.readFileSync( contractAbsolutePath, 'utf-8' )
         result['header']['deployer'] = deployer['filePath']
         result['header']['projectName'] = environment
             .getProjectNames()
@@ -158,11 +158,11 @@ export class Contract {
         }
 
         if( contractAbsolutePath === null ) {
-            comments.push( `Key 'source' is empty, will ignored.` )
+            comments.push( `Key 'sourceCode' is empty, will ignored.` )
         } else if( typeof contractAbsolutePath !== 'string' ) {
-            messages.push( `Key 'source' is not type of 'string'.` )
+            messages.push( `Key 'sourceCode' is not type of 'string'.` )
         } else if( !fs.existsSync( contractAbsolutePath ) ) {
-            messages.push( `Key 'source' provided path '${contractAbsolutePath}' is not valid.` )
+            messages.push( `Key 'sourceCode' provided path '${contractAbsolutePath}' is not valid.` )
         }
 
         if( typeof networkName !== 'string' ) {

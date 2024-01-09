@@ -37,24 +37,18 @@ export class EasyMina {
         const [ messages, comments ] = this.#validateInit( cfg )
         printMessages( { messages, comments } )
 
-        this.#account = this.#addAccount()
-        this.#environment = this.#addEnvironment()
         this.#encryption = new Encryption()
-        this.#state = this.#addState( { 'encryption': cfg['encryption'] } )
-        this.#encryption.setSecret( { 'secret': this.#state['secret'] } )
-
-        const typescript = new Typescript( {
+        this.#environment = new Environment( { 
             'validate': this.#config['validate'],
+            'secret': this.#config['secret'],
             'typescript': this.#config['typescript']
-        } )
+        } ) 
 
-        typescript.addConfigs( { 
-            'environment': this.#environment
-        } )
-   
-        this.#projectImporter = new ProjectImporter( {
+        this.#account = new Account( {
+            'accounts': this.#config['accounts'],
+            'networks': this.#config['networks'],
             'validate': this.#config['validate']
-        } )
+        } ) 
 
         this.#contract = new Contract( {
             'validate': this.#config['validate'],
@@ -62,9 +56,24 @@ export class EasyMina {
             'contracts': this.#config['contracts']
         } )
 
+        const typescript = new Typescript( {
+            'validate': this.#config['validate'],
+            'typescript': this.#config['typescript']
+        } )
+
+/*
+        typescript.addConfigs( { 
+            'environment': this.#environment
+        } )
+*/ 
+        this.#projectImporter = new ProjectImporter( {
+            'validate': this.#config['validate']
+        } )
+
+        /*
         this.#minaData = new MinaData()
         this.#minaData.init( {} )
-
+*/
 /*
         const git = new Git( {
             'git': this.#config['git']
@@ -73,6 +82,33 @@ export class EasyMina {
 
 */
         return this
+    }
+
+
+    getEnvironment() {
+        const status = this.#environment
+            .getStatus( { 'encryption': this.#encryption } )
+
+        status['environmentReady'] = [
+            Object
+                .entries( status['secret'] )
+                .map( a => a[ 1 ]['valid'] )
+                .some( a => a ),
+            Object
+                .entries( status['folders'] )
+                .every( a => a[ 1 ]['status'] )
+        ]
+            .every( a => a )
+
+        return status 
+        // this.#environment.setFolderStructure( { 'encryption': this.#encryption } )
+        // this.#state = this.#addState( { 'encryption': cfg['encryption'] } )
+        // this.#encryption.setSecret( { 'secret': this.#state['secret'] } )
+    }
+
+
+    createEnvironment() {
+
     }
 
 /*
@@ -349,8 +385,8 @@ export class EasyMina {
     }
 
 
-    async saveContract( { response } ) {
-        const [ messages, comments ] = this.#validateSaveContract( { response } )
+    async saveContract( { response, verificationKey } ) {
+        const [ messages, comments ] = this.#validateSaveContract( { response, verificationKey } )
         printMessages( { messages, comments } )
 
         const result = await this.#contract.prepareSave( { 
@@ -380,18 +416,17 @@ export class EasyMina {
             } else {
                 console.log( `The transaction did not succeed, and the contract was not saved.` )
                 if( Object.hasOwn( response, 'errors' ) ) {
-                    if( Array.isArray( response['errors'] ) ) {
-                        response['errors']
-                            .forEach( msg => {
-                                switch( msg['statusText'] ) {
-                                    case "Couldn't send zkApp command: [\"Insufficient_replace_fee\"]":
-                                        console.log( 'Did you cu')
-                                        break
-                                    default:
-                                        break
-                                }
-                            } )
-                    }
+                } else if( Array.isArray( response['errors'] ) ) {
+                    response['errors']
+                        .forEach( msg => {
+                            switch( msg['statusText'] ) {
+                                case "Couldn't send zkApp command: [\"Insufficient_replace_fee\"]":
+                                    console.log( 'Did you cu')
+                                    break
+                                default:
+                                    break
+                            }
+                        } )
                 }
             }
 
@@ -451,11 +486,12 @@ export class EasyMina {
 
 
     #addState( { encryption } ) {
+        console.log( 'A')
         const secret = this.#environment.getSecret( {
             'filePath': null,
             'encryption': this.#encryption
         } )
-    
+
 /*
         this.#environment.createSecretFile( { 
             'encryption': this.#encryption 
@@ -471,28 +507,6 @@ export class EasyMina {
         }
 
         return state
-    }
-
-
-    #addAccount() {
-        const account = new Account( {
-            'accounts': this.#config['accounts'],
-            'networks': this.#config['networks'],
-            'validate': this.#config['validate']
-        } ) 
-
-        return account
-    }
-
-
-    #addEnvironment() {
-        const environment = new Environment( { 
-            'validate': this.#config['validate'],
-            'secret': this.#config['secret'],
-            'typescript': this.#config['typescript']
-        } ) 
-
-        return environment
     }
 
 
@@ -734,21 +748,42 @@ export class EasyMina {
     }
 
 
-    #validateSaveContract( { response } ) {
+    #validateSaveContract( { response, verificationKey } ) {
         const messages = []
         const comments = []
 
-        if( typeof response === undefined ) {
-            messages.push( `Key 'response' is type of 'undefined'.` )
-        } else if( typeof response !== 'object' ) {
-            messages.push( `Key 'response' is not type of 'object'.` )
-        } else if( response.constructor !== Object ) {
-            messages.push( `Key 'response' with the constructor type '${response.constructor}' is not valid, use 'Object'.` ) 
-        } else if( !Object.hasOwn( response, 'isSuccess' ) ) {
+        const tmp = [
+            [ response, 'response' ],
+            [ verificationKey, 'verificationKey' ]
+        ]
+            .forEach( a => {
+                const [ value, key ] = a
+                if( typeof value === undefined ) {
+                    messages.push( `Key '${key}' is type of 'undefined'.` )
+                } else if( typeof value !== 'object' ) {
+                    messages.push( `Key '${key}' is not type of 'object'.` )
+                } else if( value.constructor !== Object ) {
+                    messages.push( `Key '${key}' with the constructor type '${value.constructor}' is not valid, use 'Object'.` ) 
+                }
+            } )
+
+        if( messages.length !== 0 ) {
+            return [ messages, comments ]
+        }
+
+        if( !Object.hasOwn( response, 'isSuccess' ) ) {
             messages.push( `Key 'response' has not a key/value pair 'isSuccess'.` )
         } else if( typeof response['isSuccess'] !== 'boolean' ) {
             messages.push( `Key 'response' with the key/value pair 'isSuccess' is not type of 'boolean'.` )
         }
+
+        const test = [ [ 'data' ], [ 'hash' ] ]
+            .forEach( a => {
+                const [ key ] = a
+                if( !Object.hasOwn( verificationKey[ key ], key ) ) {
+                    messages.push( `Key 'verificationKey' has not a key/value pair '${key}'.` )
+                }
+            } )
 
         return [ messages, comments ]
     }

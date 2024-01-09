@@ -13,6 +13,7 @@ export class Account {
 
 
     constructor( { accounts, networks, validate } ) {
+        console.log( 'HERE')
         this.#config = { accounts, networks, validate }
         this.#patternFinder = this.#addPatternFinder()
 
@@ -173,12 +174,17 @@ export class Account {
 
 
     #createAddress( { name, pattern=true } ) {
-        let user,presetKey
+        let user, presetKey
 
-        if( this.#patternFinder.getPresetKeys().includes( name ) ) {
+
+        const search = name
+            .substring( 0, 1 )
+            .toLowerCase()
+
+        if( this.#patternFinder.getPresetKeys().includes( search ) ) {
             presetKey = name
         } else {
-            presetKey = 'easyMina'
+            presetKey = 'other'
         }
 
         if( !pattern ) {
@@ -266,30 +272,30 @@ export class Account {
 
 
     #addPatternFinder() {
-        function setPreset( { key, value, config, patternFinder } ) {
-            const challenge = JSON.parse( 
-                JSON.stringify( config['accounts']['address'] )
-            )
-
-            challenge['logic']['and'][ 0 ]['value'] = value
-            patternFinder.setPreset( {
-                'presetKey': key,
-                'challenge': challenge
-            } ) 
-        }
-
         const patternFinder = new PatternFinder( false )
 
-        Object
-            .entries( this.#config['accounts']['personas'] )
-            .forEach( ( a, index, all ) => {
-                const [ key, value ] = a
-                setPreset( { 
-                    key, 
-                    'value': value['pattern'], 
-                    'config': this.#config, 
-                    patternFinder 
-                } )
+        this.#config['accounts']['personas']['chars']
+            .reduce( ( acc, a, index, all ) => {
+                acc.push( { 'key': a, 'value': a } )
+                if( all.length - 1 === index ) {
+                    acc.push( { 
+                        'key': 'other', 
+                        'value': this.#config['accounts']['personas']['other'] 
+                    } )
+                }
+                return acc
+            }, [] )
+            .forEach( a => {
+                const { key, value } = a
+                const challenge = JSON.parse( 
+                    JSON.stringify( this.#config['accounts']['pattern'] )
+                )
+    
+                challenge['logic']['and'][ 0 ]['value'] = value
+                patternFinder.setPreset( {
+                    'presetKey': key,
+                    'challenge': challenge
+                } ) 
             } )
 
         return patternFinder

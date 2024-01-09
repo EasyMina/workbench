@@ -9,6 +9,33 @@ export class Environment {
 
     constructor( { validate, secret, typescript } ) {
         this.#config = { validate, secret, typescript }
+
+        this.#state = {
+            'folders': {
+                'accounts': [ 
+                    'validate__folders__credentials__name',
+                    'validate__folders__credentials__subfolders__accounts__name'
+                ],
+                'contracts': [
+                    'validate__folders__credentials__name',
+                    'validate__folders__credentials__subfolders__contracts__name'
+                ],
+                'workdir': [ 
+                    'validate__folders__workdir__name'
+                ]
+            }
+        }
+
+        this.#state['folders'] = Object
+            .entries( this.#state['folders'] )
+            .reduce( ( acc, a, index ) => {
+                const [ key, value ] = a
+                acc[ key ] = value
+                    .map( keyPath => keyPathToValue( { 'data': this.#config, keyPath } ) )
+                    .join( '/' )
+                return acc
+            }, {} )
+
         return true
     }
 
@@ -23,6 +50,50 @@ export class Environment {
     }
 */
 
+    getStatus( { encryption } ) {
+        const result = {
+            'secret': null, 
+            'folders': null
+        }
+
+        result['secret'] = this.getSecret( { encryption } )
+        result['folders'] = Object
+            .entries( this.#state['folders'] )
+            .reduce( ( acc, a, index ) => {
+                const [ key, path ] = a 
+                try {
+                    fs.accessSync( path, fs.constants.F_OK )
+                    acc[ key ] = {
+                        path, 'status': true
+                    }
+                } catch( e ) {
+                    acc[ key ] = {
+                        path, 'status': false
+                    }
+                }
+                return acc
+            }, {} )
+
+        return result
+    }
+
+
+    setFolderStructure( { encryption } ) {
+        const status = this.getStatus( { encryption } )
+        console.log( status )
+        Object
+            .entries( status['folders'] )
+            .filter( a => !a[ 1 ]['status'] )
+            .forEach( a => {
+                const [ key, value ] = a
+                fs.mkdirSync( value['path'], { 'recursive': true } )
+            } )
+ 
+        return true
+    }
+
+
+/*
     updateFolderStructure( { folderType, projectName } ) {
         const credentials = [
             [ 
@@ -103,6 +174,76 @@ export class Environment {
 
         return true
     }
+*/
+
+    getSecret( { encryption } ) {
+        const result = {
+            'env': {
+                'filePath': null,
+                'exists': false,
+                'secret': null,
+                'valid': false
+            },
+            'local': {
+                'filePath': null,
+                'exists': false,
+                'secret': null,
+                'valid': false
+            }
+        }
+
+        if( !Object.hasOwn( process.env, this.#config['secret']['envKey'] ) ) {} 
+        else if( typeof process.env[ this.#config['secret']['envKey'] ] === 'string' ) {
+            try {
+                fs.accessSync(
+                    process.env[ this.#config['secret']['envKey'] ], 
+                    fs.constants.F_OK 
+                )
+                result['env']['exists'] = true
+                result['env']['filePath'] = process.env[ this.#config['secret']['envKey'] ]
+            } catch ( err ) {}
+        } else {}
+
+        const localPath = [
+            this.#config['validate']['folders']['credentials']['name'],
+            this.#config['secret']['fileName']
+        ]
+            .join( '/' )
+
+        try {
+            fs.accessSync(
+                localPath, 
+                fs.constants.F_OK 
+            )
+            result['local']['exists'] = true
+            result['local']['filePath'] = localPath
+        } catch ( err ) {}
+
+        Object
+            .entries( result )
+            .filter( a => a[ 1 ]['exists'] )
+            .forEach( a => {
+                const [ key, value ] = a
+                const { filePath } = value
+                const secret = this.#loadSecretFromFilePath( { filePath } )
+                if( secret === null ) {} 
+                else if( encryption.validateSecret( { secret } )[ 0 ].length !== 0 ) {} 
+                else {
+                    result[ key ]['secret'] = secret
+                    result[ key ]['valid'] = true
+                }
+            } )
+
+        return result
+    }
+
+/*
+    getSecret() {
+        const files = detectSecretFile()
+
+
+        result
+    }
 
 
     getSecret( { filePath=null, encryption } ) {
@@ -117,7 +258,7 @@ export class Environment {
         const result = this.#loadSecretFromFilePath( { filePath } )
         return result
     }
-
+*/
 
     createSecretFile( { encryption } ) {
         const filePath = [
@@ -432,6 +573,21 @@ export class Environment {
 
 
     #loadSecretFromFilePath( { filePath } ) {
+        let secret = null
+        try {
+            const rows = fs.readFileSync( filePath, 'utf-8' )
+            const json = JSON.parse( rows )
+            if( !Object.hasOwn( json, this.#config['secret']['jsonKey'] ) ) {
+            } else if( typeof json[ this.#config['secret']['jsonKey'] ] !== 'string' ) {
+            } else {
+                secret = json[ this.#config['secret']['jsonKey'] ]
+            }
+        } catch( e ) {} 
+        return secret
+    }
+
+/*
+    #loadSecretFromFilePath( { filePath } ) {
         const rows = fs.readFileSync( filePath, 'utf-8' )
             .split( "\n" )
 
@@ -443,7 +599,7 @@ export class Environment {
 
         return secret
     }
-
+*/
 
     #chooseSecretFilePathRoute( { filePath } ) {
         if( filePath === null ) {

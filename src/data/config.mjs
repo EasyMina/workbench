@@ -25,7 +25,8 @@ export const config = {
     },
     'secret': {
         'fileName': '_.txt',
-        'key': 'EASYMINA'
+        'envKey': 'EASYMINA',
+        'jsonKey': 'em'
     },
     'validate': {
         'folders': {
@@ -291,26 +292,22 @@ export const config = {
     },
     'accounts': {
         'disclaimer': 'Do not share this file with anyone.', 
-        'maxTries': 10000,
+        'maxTries': 25000,
         'personas': {
-            'alice': {
-                'pattern': 'a'
-            },
-            'bob': {
-                'pattern': 'b'
-            },
-            'chris': {
-                'pattern': 'c'
-            },
-            'easyMina': {
-                'pattern': 'z'
-            }
+            'chars': [
+                'a', 'b', 'c', 'd', 'e', 'f',
+                'g', 'h', 'i', 'j', 'k', 'm',
+                'n', 'o', 'p', 'q', 'r', 's',
+                't', 'u', 'v', 'w', 'x', 'y',
+                'z'
+            ],
+            'other': '0'
         },
-        'address': {
+        'pattern': {
             'logic': {
                 'and': [
                     {
-                        'value': '0',
+                        'value': null,
                         'description': 'Search for a given character.',
                         'method': 'inSuccession',
                         'option':  'endsWith', // 'inBetween', // 'endsWith',
