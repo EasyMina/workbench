@@ -17,7 +17,7 @@ easyMina.init()
 console.log( '- Import Account' )
 const deployer = await easyMina
     .getAccount( {
-        'name': 'bob',
+        'name': 'alice',
         'groupName': 'group-a',
         // 'checkStatus': true,
         // 'strict': true
@@ -39,7 +39,12 @@ const { Square } = await easyMina
 
 console.log( '- Compile' )
 const zkAppInstance = new Square( contract['publicKey']['field'] )
-await Square.compile()
+
+console.log( Square )
+process.exit( 1 )
+
+const a = await Square.compile()
+
 
 console.log( '- Prepare Transactions' )
 const tx = await Mina.transaction(
@@ -49,7 +54,7 @@ const tx = await Mina.transaction(
         'memo': 'abc'
     },
     () => {
-        zkAppInstance.update( Field( 6561 ) )
+        zkAppInstance.update( Field( 3433683820292512484657849089281 ) ) 
     }
 )
 
@@ -59,7 +64,7 @@ await tx.prove()
 console.log( '- Sign Transaction' )
 const signedMessage = tx.sign( [ 
     deployer['privateKey']['field'], 
-    contract['privateKey']['field'] 
+    // contract['privateKey']['field'] 
 ] )
 
 console.log( '- Send Transaction' )

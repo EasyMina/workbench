@@ -34,7 +34,8 @@ const contract = await easyMina
 
 console.log( '- Compile Class' )
 const zkApp = new Square( contract['publicKey']['field'] )
-const compiled = await Square.compile()
+const { verificationKey } = await Square.compile()
+
 
 console.log( '- Prepare Transactions' )
 const tx = await Mina.transaction(
@@ -67,6 +68,9 @@ console.log( '- Send Transaction' )
 const response = await signedMessage.send()
 
 console.log( '- Save Contract' )
-const deployedContract = await easyMina.saveContract( { response } )
+const deployedContract = await easyMina.saveContract( { 
+    response,
+    verificationKey
+} )
 
-console.log( `> ${deployedContract['header']['txHashExplorer']}`)
+console.log( `> ${deployedContract['header']['txHashExplorer']}` )
