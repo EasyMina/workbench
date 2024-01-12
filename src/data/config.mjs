@@ -3,7 +3,7 @@ export const config = {
         'port': 3001,
         'routes': {
             'build': {
-                'source': './build',
+                'source': 'build',
                 'route': '/build'
             },
             'public': {

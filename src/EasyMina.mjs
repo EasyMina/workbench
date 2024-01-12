@@ -15,6 +15,8 @@ import moment from 'moment'
 import fs from 'fs'
 import { PrivateKey } from 'o1js'
 import axios from 'axios'
+import crypto from 'crypto'
+import { fileURLToPath } from 'url'
 
 
 export class EasyMina {
@@ -85,16 +87,7 @@ export class EasyMina {
         this.#minaData.init({})
 
         if( cfg['setSecret'] ) {
-            const secret = this.#environment.getSecret( {
-                'encryption': this.#encryption
-            } )
-    
-            this.#state['secretString'] = secret['secret']
-            this.#state['secretId'] = secret['id']
-    
-            this.#encryption.setSecret( { 
-                'secret': secret['secret']
-            } )
+            this.setSecret()
         }
 
 /*
@@ -105,6 +98,20 @@ export class EasyMina {
 
 */
         return this
+    }
+
+
+    setSecret() {
+        const secret = this.#environment.getSecret( {
+            'encryption': this.#encryption
+        } )
+
+        this.#state['secretString'] = secret['secret']
+        this.#state['secretId'] = secret['id']
+
+        this.#encryption.setSecret( { 
+            'secret': secret['secret']
+        } )
     }
 
 
@@ -182,7 +189,7 @@ export class EasyMina {
         }
 
         const data = this.#projectImporter
-            .createExport( { projectName, phrase } )
+            .createExport( { projectName } )
 
         let result
         if( encryption ) {
@@ -206,18 +213,19 @@ export class EasyMina {
             .from( JSON.stringify( envelope, null, 4 ) )
             .toString( 'base64' )
 
-        const fullPath = `${data['rootPath']}/${projectName}-${moment().unix()}.txt`
-        fs.writeFileSync( 
-            fullPath,
-            `data:application/json;base64,${base64}`,
-            'utf-8'
-        )
-        console.log( `  > ${fullPath}`)
+        const str = `data:application/json;base64,${base64}`
+        const hash = crypto.createHash( 'sha256' )
+        hash.update( str )
+        const hashValue = hash.digest( 'hex' )
+
+        const fullPath = `${data['rootPath']}/${projectName}--${hashValue.substring(0,23)}.txt`
+        fs.writeFileSync( fullPath, str, 'utf-8' )
+        console.log( `  > ${fullPath}` )
         return result
     }
 
 
-    async importProject( { url, phrase, projectName, encryption } ) {
+    async importProject( { url, phrase, projectName, hash='' } ) {
         const projectNames = this.getProjectNames()
         if( projectNames.includes( projectName ) ) {
             const newName = `${projectName}-${moment().unix()}`
@@ -235,7 +243,7 @@ export class EasyMina {
             type = 'dataurl'
         } else if( url.startsWith( 'https://' ) ) {
             type = 'url'
-        } else {
+        } else if( url.startsWith( 'local://' ) ){
             type = 'local'
         }
 
@@ -256,10 +264,13 @@ export class EasyMina {
                     const jsonDataString = Buffer.from( base64Data, 'base64' ).toString( 'utf-8' )
                     result = JSON.parse( jsonDataString )
                 }
-                console.log( 'RRRR', result )
                 break
             case 'local':
-                const p = `./src/import/templates/${url}.txt`
+                url = url.replace( 'local://', '' )
+                const __filename = fileURLToPath( import.meta.url )
+                const __dirname = path.dirname( __filename )
+                const p = `${__dirname}/import/templates/${url}.txt`
+                // const p = `./src/import/templates/${url}.txt`
                 if( fs.existsSync( p ) ) {
                     try {
                         const dataurl = fs.readFileSync( p, 'utf-8' )
@@ -275,19 +286,23 @@ export class EasyMina {
                     console.log( `Path '${p}' not found.` )
                     process.exit( 1 )
                 }
-
+                break
+            default:
+                console.log( 'Content unknown!.' )
+                process.exit( 1 )
                 break
         }
 
-        const encrypt = new Encryption
-
+    
         if( result['encrypt'] ) {
-            result = encrypt
+            const encrypt = new Encryption()
+            result['content'] = encrypt
                 .setSecret( { 'secret': phrase, 'secure': false } )
-                .decrypt( { 'hash': result } )
+                .decrypt( { 'hash': result['content'] } )
+            result['content'] = JSON.parse( result['content'] )
         }
-
-        const importJson = JSON.parse( result )
+// console.log( 'res', result )
+        const importJson = result['content']
         this.#projectImporter.createImport( { importJson, projectName } )
 
         return true
@@ -357,6 +372,21 @@ export class EasyMina {
         )
 
         return deployer
+    }
+
+
+    getTemplateNames() {
+        let result = []
+        const __filename = fileURLToPath( import.meta.url )
+        const __dirname = path.dirname( __filename )
+        const folderPath = `${__dirname}/import/templates/`
+        if( !fs.existsSync( folderPath ) ) {
+        } else {
+            result = fs
+                .readdirSync( folderPath )
+                .map( a => a.split( '.' )[ 0 ] )
+        }
+        return result
     }
 
 
@@ -634,8 +664,8 @@ export class EasyMina {
     }
 
 
-    startServer() {
-        console.log( `Start server for '${this.#state['projectName']}'.` )
+    startServer( { projectName } ) {
+        // console.log( `Start server for '${this.#state['projectName']}'.` )
         const server = new Server( {
             'server': this.#config['server'],
             'validate': this.#config['validate']
@@ -643,7 +673,7 @@ export class EasyMina {
 
         server
             .init( {
-                'projectName': this.#state['projectName'],
+                projectName, // this.#state['projectName'],
                 'environment': this.#environment,
                 'account': this.#account, 
                 'encrypt': this.#encryption
@@ -730,7 +760,6 @@ export class EasyMina {
 */
 
     #validateInit( cfg ) {
-        console.log( 'cfg', cfg )
         const messages = []
         const comments = []
 

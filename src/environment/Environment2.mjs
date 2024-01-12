@@ -546,6 +546,7 @@ export class Environment {
 
     #getDevelopmentContractsByProjectName( { projectName } ) {
         const pathContracts = [
+            process.cwd(),
             this.#config['validate']['folders']['workdir']['name'],
             projectName,
             this.#config['validate']['folders']['workdir']['subfolders']['subfolders']['contracts']['name']

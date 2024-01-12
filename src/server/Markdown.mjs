@@ -42,7 +42,7 @@ export class Markdown {
 
 
     createProjects( { environment } ) {
-        const contractGroup = environment.getContracts()
+        const contractGroup = environment.getDevelopmentContracts()
         const scripts = environment.getScripts()
 
         let strs = ''

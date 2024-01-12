@@ -81,11 +81,11 @@ export class Server {
         }
 
         state['projectName'] = projectName
-        state['absoluteRoot'] = this.#getRootAbsolutePath()['result']
+        state['absoluteRoot'] = process.cwd() // this.#getRootAbsolutePath()['result']
 
         state['accounts'] = [ 'Account1', 'Account2', 'Account3' ]
         state['contracts'] = [ 'Contract1', 'Contract2', 'Contract3' ]
-        state['localO1js'] = './node_modules/o1js/dist/web/index.js'
+        state['localO1js'] = `${state['absoluteRoot']}/node_modules/o1js/dist/web/index.js`
         state['smartContracts'] = [ 'SmartContract1', 'SmartContract2', 'SmartContract3' ]
 
         state['publicFolder'] = ''
@@ -94,7 +94,12 @@ export class Server {
         state['publicFolder'] += `${projectName}/`
         state['publicFolder'] += this.#config['validate']['folders']['workdir']['subfolders']['subfolders']['frontend']['name']
 
-        state['buildFolder'] = this.#config['server']['routes']['build']['source']
+        state['buildFolder'] = ''
+        state['buildFolder'] += state['absoluteRoot'] + '/'
+        state['buildFolder'] += this.#config['validate']['folders']['workdir']['name'] + '/'
+        state['buildFolder'] += `${projectName}/`
+        state['buildFolder'] += this.#config['validate']['folders']['workdir']['subfolders']['subfolders']['contracts']['name'] + '/'
+        state['buildFolder'] += this.#config['server']['routes']['build']['source']
 
         return state
     }
