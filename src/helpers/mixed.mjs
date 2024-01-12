@@ -1,7 +1,7 @@
 function printMessages( { messages=[], comments=[] } ) {
     const n = [
         [ comments, 'Comment', false ],
-        [ messages, 'Error', true ]
+        [ messages, 'Message', true ]
     ]
         .forEach( ( a, index ) => {
             const [ msgs, headline, stop ] = a
@@ -11,7 +11,7 @@ function printMessages( { messages=[], comments=[] } ) {
                     console.log( `  - ${msg}` )
                     if( ( all.length - 1 ) === rindex ) {
                         if( stop === true ) {
-                            process.exit( 1 )
+                            throw new Error("")
                         }
                     }
                 } )

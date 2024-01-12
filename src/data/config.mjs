@@ -42,7 +42,7 @@ export const config = {
                 }
             },
             'workdir': {
-                'name': 'workdir',
+                'name': 'projects',
                 'subfolders': {
                     'name': null,
                     'default': 'hello-world',
@@ -386,5 +386,15 @@ export const config = {
         },
         'fileName': 'tsconfig.json',
         'buildFolderName': 'build'
+    },
+    'importer': {
+        'localPhrase': 'change the world with zk tech',
+        'rootFolder': 'validate__folders__workdir__name',
+        'subfolders': [
+            'validate__folders__workdir__subfolders__subfolders__backend__name',
+            'validate__folders__workdir__subfolders__subfolders__contracts__name',
+            'validate__folders__workdir__subfolders__subfolders__frontend__name'
+        ],
+        'suffixs': [ '.js', '.mjs', '.ts', '.png', '.html', '.css', '.json' ]
     }
 }

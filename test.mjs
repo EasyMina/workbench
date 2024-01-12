@@ -1,4 +1,9 @@
-import { EasyMina } from './src/EasyMina.mjs'
 
-const easyMina = new EasyMina()
-easyMina.init()
+
+
+const arr = []
+
+const test = arr
+    .some( a => a )
+
+    console.log( test )

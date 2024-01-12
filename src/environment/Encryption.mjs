@@ -48,9 +48,11 @@ export class Encryption {
     }
     
 
-    setSecret( { secret } ) {
-        const [ messages, comments ] = this.validateSecret( { secret } )
-        printMessages( { messages, comments } )
+    setSecret( { secret, secure=true } ) {
+        if( secure ) {
+            const [ messages, comments ] = this.validateSecret( { secret } )
+            printMessages( { messages, comments } )
+        }
 
         this.#secret = {
             'string': secret,
@@ -65,9 +67,12 @@ export class Encryption {
     }
 
 
-    encrypt( { text } ) {
-        const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
-        printMessages( { messages, comments } )
+    encrypt( { text, secure=true } ) {
+        if( secure ) {
+            const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
+            printMessages( { messages, comments } )
+        }
+
 
         const iv = crypto.randomBytes( 16 )
 
@@ -94,9 +99,11 @@ export class Encryption {
     }
 
 
-    decrypt( { hash } ) {
-        const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
-        printMessages( { messages, comments } )
+    decrypt( { hash, secure } ) {
+        if( secure ) {
+            const [ messages, comments ] = this.validateSecret( { 'secret': this.#secret['string'] } )
+            printMessages( { messages, comments } )
+        }
 
         const decipher = crypto.createDecipheriv(
             this.#config['algorithm'], 
@@ -104,11 +111,17 @@ export class Encryption {
             Buffer.from( hash['iv'], 'hex' ) 
         )
 
-        const decrypted = Buffer.concat( [
-            decipher.update( Buffer.from( hash['content'], 'hex' ) ), 
-            decipher.final()
-        ] )
-      
+        let decrypted
+        try {
+            decrypted = Buffer.concat( [
+                decipher.update( Buffer.from( hash['content'], 'hex' ) ), 
+                decipher.final()
+            ] )
+        } catch( e ) {
+            console.log( 'Decryption raised an error. Please check your secret phrase.' )
+            process.exit( 1 )
+        }
+
         return decrypted.toString()
     }
 

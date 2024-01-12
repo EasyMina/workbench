@@ -14,6 +14,7 @@ import path from 'path'
 import moment from 'moment'
 import fs from 'fs'
 import { PrivateKey } from 'o1js'
+import axios from 'axios'
 
 
 export class EasyMina {
@@ -33,7 +34,7 @@ export class EasyMina {
     }
 
 
-    init( cfg={ encryption: true } ) {
+    init( cfg={ encryption: true, setSecret: true } ) {
         const [ messages, comments ] = this.#validateInit( cfg )
         printMessages( { messages, comments } )
 
@@ -67,13 +68,35 @@ export class EasyMina {
         } )
 */ 
         this.#projectImporter = new ProjectImporter( {
-            'validate': this.#config['validate']
+            'validate': this.#config['validate'],
+            'importer': this.#config['importer']
         } )
 
-        /*
+        this.#state = {
+            'groupName': null,
+            'projectName': null,
+            'names': null,
+            'secretString': null,
+            'secretId': null,
+            'encryption': cfg['encryption']
+        }
+
         this.#minaData = new MinaData()
-        this.#minaData.init( {} )
-*/
+        this.#minaData.init({})
+
+        if( cfg['setSecret'] ) {
+            const secret = this.#environment.getSecret( {
+                'encryption': this.#encryption
+            } )
+    
+            this.#state['secretString'] = secret['secret']
+            this.#state['secretId'] = secret['id']
+    
+            this.#encryption.setSecret( { 
+                'secret': secret['secret']
+            } )
+        }
+
 /*
         const git = new Git( {
             'git': this.#config['git']
@@ -85,16 +108,13 @@ export class EasyMina {
     }
 
 
-    getEnvironment() {
+    getEnvironmentStatus() {
         const status = this.#environment
             .getStatus( { 'encryption': this.#encryption } )
 
         status['environmentReady'] = [
-            Object
-                .entries( status['secret'] )
-                .map( a => a[ 1 ]['valid'] )
-                .some( a => a ),
-            Object
+            status['secret']['secret'] !== null
+            ,Object
                 .entries( status['folders'] )
                 .every( a => a[ 1 ]['status'] )
         ]
@@ -107,8 +127,33 @@ export class EasyMina {
     }
 
 
-    createEnvironment() {
+    setEnvironment() {
+        this.#environment.setFolderStructure( { 
+            'encryption': this.#encryption 
+        } )
 
+        let secret = this.#environment.getSecret( {
+            'encryption': this.#encryption
+        } )
+
+        if( secret['secret'] === null ) {
+            this.#environment.createSecretFile( { 
+                'encryption': this.#encryption
+            } )
+
+            secret = this.#environment.getSecret( {
+                'encryption': this.#encryption
+            } )
+        }
+
+        this.#state['secretString'] = secret['secret']
+        this.#state['secretId'] = secret['id']
+
+        this.#encryption.setSecret( { 
+            'secret': this.#state['secretString'] 
+        } )
+
+        return true
     }
 
 /*
@@ -130,14 +175,132 @@ export class EasyMina {
         return this
     }
 */
+    exportProject( { projectName, name='', description='', phrase, encryption=true } ) {
+        if( phrase === undefined ) {
+            phrase = this.#config['importer']['localPhrase']
+            console.log( `Key 'phrase' not found, chose '${phrase}' as phrase value instead.` )
+        }
+
+        const data = this.#projectImporter
+            .createExport( { projectName, phrase } )
+
+        let result
+        if( encryption ) {
+            const encrypt = new Encryption()
+            result = encrypt
+                .setSecret( { 'secret': phrase, 'secure': false } )
+                .encrypt( { 'text': JSON.stringify( data ), 'secure': false } )
+        } else {
+            result = data
+        }
+
+        const envelope = {
+            name,
+            description,
+            'encrypt': encryption,
+            'created': moment().format( 'YYYY-MM-DD hh:mm:ss A' ),
+            'content': result
+        }
+
+        const base64 = Buffer
+            .from( JSON.stringify( envelope, null, 4 ) )
+            .toString( 'base64' )
+
+        const fullPath = `${data['rootPath']}/${projectName}-${moment().unix()}.txt`
+        fs.writeFileSync( 
+            fullPath,
+            `data:application/json;base64,${base64}`,
+            'utf-8'
+        )
+        console.log( `  > ${fullPath}`)
+        return result
+    }
+
+
+    async importProject( { url, phrase, projectName, encryption } ) {
+        const projectNames = this.getProjectNames()
+        if( projectNames.includes( projectName ) ) {
+            const newName = `${projectName}-${moment().unix()}`
+            projectName = newName
+            console.log( `ProjectName already exists. Used ${newName} instead.`)
+        }
+
+        if( phrase === undefined ) {
+            phrase = this.#config['importer']['localPhrase']
+            console.log( `Key 'phrase' not found, chose '${phrase}' as phrase value instead.` )
+        }
+
+        let type
+        if( url.startsWith( 'data:application/json;base64,' ) ) {
+            type = 'dataurl'
+        } else if( url.startsWith( 'https://' ) ) {
+            type = 'url'
+        } else {
+            type = 'local'
+        }
+
+        let result
+        let response
+        switch( type ) {
+            case 'dataurl':
+                response = await axios.get( url, { 'responseType': 'arraybuffer' } )
+                const base64Data = response.data.toString( 'base64' )
+                const jsonDataString = Buffer.from( base64Data, 'base64' ).toString( 'utf-8' )
+                result = JSON.parse( jsonDataString )
+                break
+            case 'url':
+                response = await axios.get( url )
+                if( response.data.startsWith( 'data:application/json;base64,' ) ) {
+                    response = await axios.get(response.data, { 'responseType': 'arraybuffer' } )
+                    const base64Data = response.data.toString( 'base64' )
+                    const jsonDataString = Buffer.from( base64Data, 'base64' ).toString( 'utf-8' )
+                    result = JSON.parse( jsonDataString )
+                }
+                console.log( 'RRRR', result )
+                break
+            case 'local':
+                const p = `./src/import/templates/${url}.txt`
+                if( fs.existsSync( p ) ) {
+                    try {
+                        const dataurl = fs.readFileSync( p, 'utf-8' )
+                        response = await axios.get( dataurl, { 'responseType': 'arraybuffer' } )
+                        const base64Data = response.data.toString( 'base64' )
+                        const jsonDataString = Buffer.from( base64Data, 'base64' ).toString( 'utf-8' )
+                        result = JSON.parse( jsonDataString )
+                    } catch( e ) {
+                        console.log( e )
+                        process.exit( 1 )
+                    }
+                } else {
+                    console.log( `Path '${p}' not found.` )
+                    process.exit( 1 )
+                }
+
+                break
+        }
+
+        const encrypt = new Encryption
+
+        if( result['encrypt'] ) {
+            result = encrypt
+                .setSecret( { 'secret': phrase, 'secure': false } )
+                .decrypt( { 'hash': result } )
+        }
+
+        const importJson = JSON.parse( result )
+        this.#projectImporter.createImport( { importJson, projectName } )
+
+        return true
+    }
+
 
     async createAccounts( { names, networkName, groupName, pattern=true } ) {
         const [ messages, comments ] = this.#validateCreateAccount( { 'name': 'placeholder', names, groupName, pattern, networkName } )
         printMessages( { messages, comments } )
 
-        this.#environment.updateFolderStructure( { 'folderType': 'credentials' } )
+        this.setEnvironment()
+        // this.#environment.updateFolderStructure( { 'folderType': 'credentials' } )
         const missingNames = this.#getMissingAccounts( { names, groupName } )
-
         const deployers = []
         for( let i = 0; i < missingNames.length; i++ ) {
             const [ name, groupName ] = missingNames[ i ]
@@ -173,8 +336,9 @@ export class EasyMina {
         const encrypt = this.#state['encryption']
         const account = this.#account
 
+        const id = this.#state['secretId']
         deployer = await account
-            .create( { name, groupName, pattern, networkName, encrypt } )
+            .create( { name, groupName, pattern, networkName, encrypt, id } )
 
         const fileContent = this.#encryption
             .encryptCredential( { 'credential': deployer } )
@@ -193,6 +357,23 @@ export class EasyMina {
         )
 
         return deployer
+    }
+
+
+    getProjectNames() {
+        const path = this.#config['validate']['folders']['workdir']['name']
+        const projectNames = fs
+            .readdirSync( path )
+            .map( folder => {
+                return {
+                    'path': `${path}/${folder}`,
+                    'projectName': folder
+                }
+            } )
+            .filter( a => fs.statSync( a['path'] ).isDirectory() )
+            .map( a => a['projectName'])
+
+        return projectNames
     }
 
 
@@ -473,43 +654,6 @@ export class EasyMina {
     }
 
 
-    async importProject( { projectPath } ) {
-        await this.#projectImporter
-            .addProject( { projectPath } )
-        return true
-    }
-
-
-    async exportProject( { projectName } ) {
-        return true
-    }
-
-
-    #addState( { encryption } ) {
-        console.log( 'A')
-        const secret = this.#environment.getSecret( {
-            'filePath': null,
-            'encryption': this.#encryption
-        } )
-
-/*
-        this.#environment.createSecretFile( { 
-            'encryption': this.#encryption 
-        } )
-*/
-
-        const state = {
-            'groupName': null,
-            'projectName': null,
-            'names': null,
-            secret,
-            encryption
-        }
-
-        return state
-    }
-
-
     #getMissingAccounts( { names, groupName } ) {
         const availableDeyployers = this.#environment.getAccounts( { 
             'account': this.#account, 
@@ -586,6 +730,7 @@ export class EasyMina {
 */
 
     #validateInit( cfg ) {
+        console.log( 'cfg', cfg )
         const messages = []
         const comments = []
 

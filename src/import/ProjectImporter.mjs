@@ -1,178 +1,248 @@
 import { printMessages, keyPathToValue } from '../helpers/mixed.mjs'
 import fs from 'fs'
+import path from 'path'
+import moment from 'moment'
 
 
 export class ProjectImporter {
     #config
+    #templateStruct
 
 
-    constructor( { validate } ) {
-        this.#config = { validate }
+    constructor( { validate, importer } ) {
+        this.#config = { validate, importer }
+
+        this.#templateStruct = {
+            'projectName': '',
+            'files': {
+                'root': [],
+                'contracts': [],
+                'backend': [],
+                'frontend': []
+            }
+        }
 
         return true
     }
 
 
-    async addProject( { projectPath } ) {
-        const [ messages, comments ] = this.#validateAddProject( { projectPath } ) 
-        printMessages( { messages, comments } )
-
-        let json, filePath
-        if( projectPath.startsWith( 'https://' ) ) {
-            // public import here <<<---->>>
-        } else {
-            filePath = `./templates/${projectPath}.mjs`
-            try {
-                // import * as data from `./templates/${projectPath}`
-                const { struct } = await import( filePath )
-                json = struct 
-                // console.log( 'struct', struct )
-            } catch( e ) {
-                messages.push( `File '${filePath}' is not found.` )
-            }
+    addProject( { projectName, type='external' } ) {
+        switch( type ) {
+            case 'external':
+                break
+            case 'internal':
+                const path = `./import/templates/`
+                break
+            default:
+                break
         }
-        printMessages( { messages, comments } )
-
-        const [ m, c ] = this.#validateImportStruct( { json, filePath } ) 
-        printMessages( { 'messages': m, 'comments': c } )
-
-        console.log( 'END' )
 
         return true
     }
 
 
-    #validateAddProject( { projectPath } ) {
-        const messages = []
-        const comments = []
+    #allFilesFromFolder( { folderPath } ) {
+        function walkDir( currentPath ) {
+          const files = fs
+              .readdirSync( currentPath )
+              .forEach( ( file ) => {
+                  const filePath = path.join( currentPath, file )
+                  if( fs.statSync( filePath ).isDirectory() ) {
+                      walkDir( filePath )
+                  } else {
+                      fileList.push( filePath )
+                  }
+          } )
+      
+          return true
+        }        
 
-        if( typeof projectPath === 'undefined' ) {
-            messages.push( `Key 'projectPath' is mssing.` )
-        } else if( typeof projectPath !== 'string' ) {
-            messages.push( `Key 'projectPath' is not type string.` )
-        }
-
-        return [ messages, comments ]
+        let fileList = []
+      
+        walkDir( folderPath )
+        return fileList
     }
 
 
-    #validateImportStruct( { json, filePath } ) {
-        function checkKey( { id, name, key, validation, type, config, data } ) {
-            const messages = []
-            const comments = []
-            const value = keyPathToValue( { data, 'keyPath': key } )
-            const regex = keyPathToValue( { 'data': config, 'keyPath': validation } )
-
-            let test = null
-            switch( type ) {
-                case 'string':
-                    if( typeof value === undefined ) {
-                        test = false
-                        messages.push(`'${id}', key '${name}' is 'undefined'.` )
-                    } else if( typeof value !== 'string' ) {
-                        test = false
-                        messages.push( `'${id}', key '${name}' is type of 'string'.` )
-                    } else if( !regex['regex'].test( `${value}` ) ) {
-                        test = false
-                        messages.push( `'${id}', key '${name}' is not a valid pattern. ${regex['description']}` )
-                    } else {
-                        test = true
-                    }
-                    break
-                case 'array':
-                    if( !Array.isArray( value ) ) {
-                        messages.push( `'${id}', key '${name}' is type of 'array'.` )
-                        test = false
-                    } else {
-                        test = value
-                            .map( v =>  regex['regex'].test( v ) )
-                            .every( a => a )
-
-                        if( !test ) {
-                            messages.push( `'${id}', key '${name}' is not a valid pattern. ${regex['description']}` )
-                        }
-                    } 
-                    break
-                default:
-                    console.log( 'k', key )
-                    console.log( 'y', name )
-                    console.log( `Unknown Type: ${type}.` )
-                    break
-            }
-
-            return [ messages, comments ]
-        }
-
-
-        let messages = []
-        let comments = []
-
-        if( typeof json !== 'object' || json === null || Array.isArray( json ) ) {
-            messages.push( `Json is not type of 'object'` )
-        }
-
-        if( messages.length !== 0 ) {
-            return [ messages, comments ]
-        }
-
-        this.#config['validate']['files']['importPayload']['root']
-            .forEach( a => {
-                const { name, key, validation, type, required } = a
-                console.log( 'type', type )
-                const [ m, c ] = checkKey( { 
-                    id: `filepath '${filePath}', root `,
-                    name, 
-                    key,
-                    validation, 
-                    type,
-                    'config': this.#config,
-                    'data': json
-                } )
-
-                if( required ) {
-                    messages = [ ...messages, ...m ]
-                    comments = [ ...comments, ...c ]
-                }
-            } )
-
-        if( messages.length !== 0 ) {
-            return [ messages, comments ]
-        }
+    createImport( { importJson, projectName } ) {
+        let root = ''
+        root += this.#config['validate']['folders']['workdir']['name'] + '/'
+        root += projectName
 
         Object
-            .entries( json )
-            .filter( ( [ k, v ] ) => [ 'contracts', 'demos' ].includes( k ) )
+            .entries( importJson['folders'] )
             .forEach( a => {
-                const [ k, values ] = a
+                const [ key, values ] = a
                 values
-                    .forEach(( data, index ) => {
-                        this.#config['validate']['files']['importPayload'][ k ]
-                            .forEach( b => {
-                                const { name, key, validation, type, required } = b
-                                console.log( 'key', key )
-
-
-                                console.log( 'type', type )
-                                const [ m, c ] = checkKey( { 
-                                    id: `filepath '${filePath}', folder '${k}[${index}]' `,
-                                    name, 
-                                    key,
-                                    validation, 
-                                    type,
-                                    'config': this.#config,
-                                    data 
-                                } )
-                
-                                if( required ) {
-                                    messages = [ ...messages, ...m ]
-                                    comments = [ ...comments, ...c ]
-                                }
-                            } )
-
+                    .forEach( item => {
+                        const fullPath = `${root}/${item['destination']}`
+                        const directoryPath = path.dirname( fullPath )
+                        fs.mkdirSync( directoryPath, { 'recursive': true } )
+                        fs.writeFileSync( 
+                            fullPath,
+                            item['content'],
+                            'utf-8'
+                        )
                     } )
-
             } )
 
-        return [ messages, comments ]
+        return true
     }
+
+
+    createExport( { projectName } ) {
+        const struct = this.#prepareExport()
+        const { rootFolder, subfolders, suffixs } = struct
+        const allFiles = this.#getExportFiles( { rootFolder, subfolders, suffixs } )
+
+        const test = allFiles
+            .map( a => a['projectName'] )
+            .filter( ( v, i, a ) => a.indexOf( v ) === i )
+            .includes( projectName )
+
+        if( !test ) {
+            console.log( `ProjectName '${projectName}' is not found.` )
+            process.exit( 1 )
+        }
+
+        const structure = this.#getStructureFromFiles( { allFiles, subfolders } )
+        const data = {
+            'created': moment().format( 'YYYY-MM-DD hh:mm:ss A' ),
+            projectName,
+            ...structure[ projectName ]
+        }
+
+        return data
+    }
+
+
+    #prepareExport() {
+        const result = {
+            'rootFolder': null,
+            'subfolders': null, 
+            'suffixs': null
+        }
+
+        result['rootFolder'] = keyPathToValue( { 
+            'data': this.#config, 
+            'keyPath': this.#config['importer']['rootFolder']
+        } )
+
+        result['subfolders'] = this.#config['importer']['subfolders']
+            .map( keyPath => keyPathToValue( { 'data': this.#config, keyPath } ) )
+
+        result['suffixs'] = this.#config['importer']['suffixs']
+
+        return result
+    }
+
+
+    #getExportFiles( { rootFolder, subfolders, suffixs } ) {
+        function allFilesFromFolder( { rootFolder } ) {
+            function walkDir( currentPath ) {
+                const files = fs
+                    .readdirSync( currentPath )
+                    .forEach( ( file ) => {
+                        const filePath = path.join( currentPath, file )
+                        if( fs.statSync( filePath ).isDirectory() ) {
+                            walkDir( filePath )
+                        } else {
+                            fileList.push( filePath )
+                        }
+                } )
+
+                return true
+            }
+
+            let fileList = []
+            walkDir( rootFolder )
+            return fileList
+        }
+
+
+        const result = allFilesFromFolder( { rootFolder } )
+            .map( filePath => {
+                const split = filePath.split( '/' )
+                const struct = {
+                    'fileName': path.basename( filePath ),
+                    'suffix': path.extname( filePath ),
+                    'projectName': null,
+                    'type': null,
+                    'subfolderName': null,
+                    'sourcePath': filePath,
+                    'destinationPath': split.slice( 2 ).join( '/' ),
+                    'rootPath': split.slice( 0, 2 ).join( '/' )
+                }
+        
+                if( split.length > 1 ) {
+                    struct['projectName'] = split[ 1 ]
+                }
+        
+                if( split.length === 3 ) {
+                    if( !fs.statSync( split.slice( 0, 3 ).join( '/' ) ).isDirectory() ) {
+                        struct['type'] = 'root'
+                    } else {
+        
+                    }
+                } else if( split.length > 3 ) {
+                    if( fs.statSync( split.slice( 0, 3 ).join( '/') ).isDirectory() ) {
+                        struct['type'] = 'subfolder'
+                        struct['subfolderName'] = split[ 2 ]
+                    }
+                }
+        
+                return struct
+            } )
+            .filter( a => a['type'] !== null )
+            .filter( a => suffixs.includes( a['suffix'] ) )
+            .filter( a => subfolders.includes( a['subfolderName'] ) || a['type'] === 'root' )
+            .filter( a => {
+                if( a['subfolder'] === 'contracts' ) {
+                    if( a['filePath'].indexOf( 'contracts/build' ) !== -1 ) {
+                        return false
+                    } else {
+                        return true
+                    }
+                }
+                return true
+            } )
+
+        return result
+    }
+
+
+    #getStructureFromFiles( { allFiles, subfolders } ) {
+        const result = allFiles
+            .reduce( ( acc, a, index, all ) => {
+                const struct = {
+                    'destination': a['destinationPath'],
+                    'content': fs.readFileSync( a['sourcePath'], 'utf-8' )
+                }
+
+                if( !Object.hasOwn( acc, a['projectName'] ) ) {
+                    acc[ a['projectName'] ] = {
+                        'rootPath': a['rootPath'],
+                        'folders': {}
+                    }
+                    subfolders
+                        .forEach( ( b, index ) => {
+                            index === 0 ? acc[ a['projectName'] ]['folders']['root'] = [] : ''
+                            acc[ a['projectName'] ]['folders'][ b ] = []
+                        } )
+                }
+
+                if( a['type'] === 'root' ) {
+                    acc[ a['projectName'] ]['folders']['root'].push( struct )
+                } else if( a['type'] === 'subfolder' ) {
+                    acc[ a['projectName'] ]['folders'][ a['subfolderName'] ].push( struct )
+                } else {
+                    console.log( 'Wrong type' )
+                    process.exit( 1 )
+                }
+                return acc
+            }, {} )
+
+        return result
+    }
+
 }

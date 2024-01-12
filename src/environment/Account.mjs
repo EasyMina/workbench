@@ -13,7 +13,6 @@ export class Account {
 
 
     constructor( { accounts, networks, validate } ) {
-        console.log( 'HERE')
         this.#config = { accounts, networks, validate }
         this.#patternFinder = this.#addPatternFinder()
 
@@ -21,7 +20,7 @@ export class Account {
     }
 
 
-    async create( { name, groupName, pattern=true, networkName, encrypt } ) {
+    async create( { name, groupName, pattern=true, networkName, encrypt, id } ) {
         const deployer = this.#createAddress( { name, pattern } )
 
         const faucet = await this.#sendFaucet( { 
@@ -33,6 +32,7 @@ export class Account {
             'header': {
                 name,
                 groupName,
+                'environmentId': id,
                 networkName,
                 'addressShort': null,
                 'addressFull': null,
@@ -52,7 +52,7 @@ export class Account {
             'disclaimer': null
         }
 
-        struct['header']['created'] = moment().format( 'YYYY-MM-DD hh:mm:ss A');
+        struct['header']['created'] = moment().format( 'YYYY-MM-DD hh:mm:ss A' )
 
         struct['header']['addressShort'] = `${deployer['publicKey'].slice( 0, 8 )}...${deployer['publicKey'].slice( -4 )}`
         struct['header']['addressFull'] = deployer['publicKey']
@@ -182,7 +182,7 @@ export class Account {
             .toLowerCase()
 
         if( this.#patternFinder.getPresetKeys().includes( search ) ) {
-            presetKey = name
+            presetKey = search
         } else {
             presetKey = 'other'
         }
@@ -192,8 +192,10 @@ export class Account {
         } else {
             let loop = true
             let index = 0
+
+            process.stdout.write( `  ${name}  `)
             while( loop ) {
-                index % 1000 === 0 ? process.stdout.write( `${index} ` ) : ''
+                index % 1000 === 0 ? process.stdout.write( `.` ) : ''
                 user = this.#getKeyPairs()
                 const result = this.#patternFinder
                     .getResult( {
@@ -209,6 +211,7 @@ export class Account {
                     // console.log( 'not found.' )
                 }
             }
+            console.log( '' )
         } 
 
         return user
