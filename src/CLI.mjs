@@ -75,7 +75,30 @@ export class CLI {
     }
 
 
-    async addAccounts() {
+    async #addAccounts() {
+        const questions = [
+            {
+              type: 'input',
+              name: 'names',
+              message: 'Enter names (comma-separated):',
+              validate: function (input) {
+                const namesArray = input.split(',').map(name => name.trim());
+                return namesArray.length > 0 ? true : 'Please enter at least one name.';
+              },
+            },
+            {
+              type: 'input',
+              name: 'groupName',
+              message: 'Enter the group name:',
+              validate: function (input) {
+                return input.trim() !== '' ? true : 'Please enter a non-empty group name.';
+              },
+            }
+          ]
+          
+        const response = await inquirer
+            .prompt( questions )
+        // this.#easyMina.createAccounts( { names, networkName, groupName } )
 
         return true
     }
