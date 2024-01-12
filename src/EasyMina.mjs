@@ -27,6 +27,7 @@ export class EasyMina {
     #encryption
     #projectImporter
     #contract
+    #git
     #minaData
 
 
@@ -90,13 +91,11 @@ export class EasyMina {
             this.setSecret()
         }
 
-/*
-        const git = new Git( {
-            'git': this.#config['git']
+        this.#git = new Git( {
+            'git': this.#config['git'],
+            'validate': this.#config['validate']
         } )
-        git.addGitIgnore()
 
-*/
         return this
     }
 
@@ -159,6 +158,8 @@ export class EasyMina {
         this.#encryption.setSecret( { 
             'secret': this.#state['secretString'] 
         } )
+
+        this.#git.addGitIgnore()
 
         return true
     }

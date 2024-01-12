@@ -5,14 +5,18 @@ import fs from 'fs'
 export class Git {
     #config
 
-    constructor( { git } ) {
-        this.#config = { git }
+    constructor( { git, validate } ) {
+        this.#config = { git, validate }
         return true
     }
 
 
     addIgnoreFile() {
-        const path = this.#config['typescript']['fileName']
+        const path = [
+            process.cwd(),
+            this.#config['git']['fileName']
+        ]
+            .join( '/' )
         if( !fs.existsSync( this.#config['typescript']['fileName'] ) ) {
             exists = false
             fs.writeFileSync( 
@@ -25,11 +29,22 @@ export class Git {
             printMessages( { messages, comments } )
         }
 
-
         return true
     }
 
 
     #validateConfig( { path } ) {
+        const messages = []
+        const comments = []
+        const file = fs.readFileSync( path, 'utf-8' )
+        const test = file
+            .split( "\n" )
+            .map( a => {
+                const search = this.#config['validate']['folders']['credentials']['name']
+                return search === a.trim()
+            } )
+            .some( a => a )
 
+        return [ messages, comments ]
+    }
 }
